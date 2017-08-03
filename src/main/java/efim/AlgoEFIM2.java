@@ -4,17 +4,13 @@ package efim;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
-import org.apache.spark.util.AccumulatorV2;
 import org.apache.spark.util.CollectionAccumulator;
-import org.apache.spark.Accumulator;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.*;
-
-import static java.util.Collections.*;
 
 
 
@@ -45,7 +41,7 @@ public class AlgoEFIM2 implements Serializable {
 
 	/** the set of high-utility itemsets */
     private Itemsets highUtilityItemsets;
-    private CollectionAccumulator<Itemset> aHighUtilityItemsets;
+    private CollectionAccumulator<HUI> aHighUtilityItemsets;
 
 	/** object to write the output file */
 	BufferedWriter writer = null;
@@ -424,6 +420,11 @@ public class AlgoEFIM2 implements Serializable {
             backtrackingEFIM(dataset.getTransactions(), itemsToKeep, itemsToKeep, 0);
         }
 
+        if(DEBUG)
+        {
+            System.out.println("------- Paso -------");
+        }
+
         // record the end time
         endTimestamp = System.currentTimeMillis();
 
@@ -437,25 +438,24 @@ public class AlgoEFIM2 implements Serializable {
 
         // return the set of high-utility itemsets
         //return highUtilityItemsets;
-
-        if(DEBUG)
-        {
-            System.out.println("------- Itemsets -------");
-            System.out.println(aHighUtilityItemsets.value());
-            System.out.println("------------------------");
+        this.highUtilityItemsets = new Itemsets("Itemsets");
+        for (HUI hui:aHighUtilityItemsets.value()) {
+            highUtilityItemsets.addItemset(hui.getItemset(), hui.getLevel());
         }
 
+        highUtilityItemsets.printItemsets();
 
 
 
-		while (true) {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
-        }
+
+//		while (true) {
+//            try {
+//                Thread.sleep(1000);
+//            } catch (InterruptedException e) {
+//                // TODO Auto-generated catch block
+//                e.printStackTrace();
+//            }
+//        }
     }
 
 	/**
@@ -514,8 +514,9 @@ public class AlgoEFIM2 implements Serializable {
         JavaSparkContext sc = efim.SparkConnection.getContext();
 		JavaRDD<Integer> itemsToExploreRDD = sc.parallelize(itemsToExplore);
 
-		itemsToExploreRDD.map(new Function<Integer, Integer>(){
-		    public Integer call(Integer e) throws Exception {
+
+		JavaRDD<ItemTransactions> itemTransactionsRDD = itemsToExploreRDD.map(new Function<Integer, ItemTransactions>(){
+		    public ItemTransactions call(Integer e) throws Exception {
 		        if(DEBUG){
 		            System.out.println("j: " + e);
                 }
@@ -689,10 +690,10 @@ public class AlgoEFIM2 implements Serializable {
                 // but at the same time translate from new name of "e"  to its old name
                 temp[prefixLength] = newNamesToOldNames[e];
 
-                if(DEBUG){
-                    System.out.println("prefixLength: " + prefixLength);
-                    System.out.println("utility: " + utilityPe);
-                }
+//                if(DEBUG){
+//                    System.out.println("prefixLength: " + prefixLength);
+//                    System.out.println("utility: " + utilityPe);
+//                }
                 // if the utility of PU{e} is enough to be a high utility itemset
                 if(utilityPe  >= minUtil)
                 {
@@ -701,9 +702,19 @@ public class AlgoEFIM2 implements Serializable {
 
                 }
 
+                ItemTransactions itemTransactions = new ItemTransactions(j, transactionsPe);
+                return itemTransactions;
+            }
+        });
 
-                //==== Next, we will calculate the Local Utility and Sub-tree utility of
-                // all items that could be appended to PU{e} ====
+        itemTransactionsRDD.count();
+        JavaRDD<Algo> algos = itemTransactionsRDD.map(new Function<ItemTransactions, Algo>() {
+            public Algo call(ItemTransactions it) throws Exception {
+                int j = it.getItem();
+                Integer e = itemsToExplore.get(j);
+
+                List<Transaction> transactionsPe = it.getTransactions();
+
                 useUtilityBinArraysToCalculateUpperBounds(transactionsPe, j, itemsToKeep);
                 if(DEBUG){
                     System.out.println("===== Projected database e: " + e + " === ");
@@ -743,21 +754,23 @@ public class AlgoEFIM2 implements Serializable {
                 // update the total time  for identifying promising items
                 timeIdentifyPromisingItems +=  (System.currentTimeMillis() -  initialTime);
 
-                // === recursive call to explore larger itemsets
-                if(activateSubtreeUtilityPruning){
-                    // if sub-tree utility pruning is activated, we consider primary and secondary items
-                    backtrackingEFIM(transactionsPe, newItemsToKeep, newItemsToExplore,prefixLength+1);
-                }else{
-                    // if sub-tree utility pruning is deactivated, we consider secondary items also
-                    // as primary items
-                    backtrackingEFIM(transactionsPe, newItemsToKeep, newItemsToKeep,prefixLength+1);
-                }
-                return e;
+                Algo algoRetorno = new Algo(j, transactionsPe, newItemsToKeep, newItemsToExplore);
+                return algoRetorno;
             }
         });
 
-		itemsToExploreRDD.count();
-		// check the maximum memory usage for statistics purpose
+        List<Algo> listAlgo = algos.collect();
+        for (Algo a:listAlgo) {
+            if(activateSubtreeUtilityPruning){
+                // if sub-tree utility pruning is activated, we consider primary and secondary items
+                backtrackingEFIM(a.getTransactions(), a.getItemsToKeep(), a.getItemsToExplore(),prefixLength+1);
+            }else{
+                // if sub-tree utility pruning is deactivated, we consider secondary items also
+                // as primary items
+                backtrackingEFIM(a.getTransactions(), a.getItemsToKeep(), a.getItemsToKeep(),prefixLength+1);
+            }
+        }
+        // check the maximum memory usage for statistics purpose
 		MemoryLogger.getInstance().checkMemory();
     }
 
@@ -1002,7 +1015,7 @@ public class AlgoEFIM2 implements Serializable {
 			// we create the itemset using this array and add it to the list of itemsets
 			// found until now
 			highUtilityItemsets.addItemset(new Itemset(copy, utility),copy.length);
-			aHighUtilityItemsets.add(new Itemset(copy, utility));
+			aHighUtilityItemsets.add(new HUI(new Itemset(copy, utility), copy.length));
 		} else {
 			// if user wants to save the results to file
 			// create a stringuffer
