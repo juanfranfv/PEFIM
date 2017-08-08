@@ -28,8 +28,8 @@ public class ItemTransactions implements Serializable {
         return this.transactions;
     }
 
-    public ItemTransactions(int i, List<Transaction> ts) {
-        this.item = i;
-        this.transactions = ts;
+    public ItemTransactions(int item, List<Transaction> transactions) {
+        this.item = item;
+        this.transactions = transactions;
     }
 }

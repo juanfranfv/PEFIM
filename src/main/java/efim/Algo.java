@@ -48,7 +48,8 @@ public class Algo implements Serializable {
     public Algo(int i, List<Transaction> ts, List<Integer> itemsK, List<Integer> itemsE) {
         this.item = i;
         this.transactions = ts;
-        this.itemsToExplore = itemsE;
         this.itemsToKeep = itemsK;
+        this.itemsToExplore = itemsE;
+
     }
 }
