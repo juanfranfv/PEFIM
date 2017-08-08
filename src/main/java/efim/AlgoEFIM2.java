@@ -4,6 +4,7 @@ package efim;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
+import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.util.CollectionAccumulator;
 
 import java.io.BufferedWriter;
@@ -57,7 +58,7 @@ public class AlgoEFIM2 implements Serializable {
 	int minUtil;
 
 	/** if this variable is set to true, some debugging information will be shown */
-    final boolean  DEBUG = true;
+    final boolean  DEBUG = false;
 
     /** The following variables are the utility-bins array
 	// Recall that each bucket correspond to an item */
@@ -522,7 +523,7 @@ public class AlgoEFIM2 implements Serializable {
 		candidateCount += itemsToExplore.size();
         JavaSparkContext sc = efim.SparkConnection.getContext();
 		JavaRDD<Integer> itemsToExploreRDD = sc.parallelize(itemsToExplore);
-
+        itemsToExploreRDD.persist(StorageLevel.MEMORY_ONLY());
 
 		JavaRDD<Algo> itemTransactionsRDD = itemsToExploreRDD.map(new Function<Integer, Algo>(){
 		    public Algo call(Integer e) throws Exception {
@@ -824,6 +825,7 @@ public class AlgoEFIM2 implements Serializable {
 //            }
 //        });
 
+        itemTransactionsRDD.persist(StorageLevel.MEMORY_ONLY());
         List<Algo> listAlgo = itemTransactionsRDD.collect();
         for (Algo a:listAlgo) {
             List<Integer> newItemsToKeep = a.getItemsToKeep();
@@ -907,6 +909,7 @@ public class AlgoEFIM2 implements Serializable {
                 return transaction;
             }
         });
+        tempRDD.persist(StorageLevel.MEMORY_ONLY());
         tempRDD.count();
 
         List<Item> lista = aUtilityBinArrayLU.value();
@@ -971,6 +974,7 @@ public class AlgoEFIM2 implements Serializable {
                 return transaction;
             }
         });
+        tempRDD.persist(StorageLevel.MEMORY_ONLY());
         tempRDD.count();
 
         List<Item> lista = aUtilityBinArraySU.value();

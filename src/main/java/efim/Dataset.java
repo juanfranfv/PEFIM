@@ -11,6 +11,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import efim.SparkConnection;
+import org.apache.spark.storage.StorageLevel;
 /* This file is copyright (c) 2012-2015 Souleymane Zida, Philippe Fournier-Viger, Alan Souza
 * 
 * This file is part of the SPMF DATA MINING SOFTWARE
@@ -78,6 +79,7 @@ public class Dataset  implements Serializable {
         br.close();
 
         transacciones = sc.parallelize(transactions);
+        transacciones.persist(StorageLevel.MEMORY_ONLY());
     }
 
     /**
