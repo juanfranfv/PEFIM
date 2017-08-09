@@ -252,6 +252,7 @@ public class AlgoEFIM2 implements Serializable {
             }
         });
         dataset.transacciones.persist(StorageLevel.MEMORY_ONLY());
+        dataset.transacciones.first();
         /*
         for(int i=0; i< dataset.getTransactions().size();i++)
         {
@@ -763,70 +764,9 @@ public class AlgoEFIM2 implements Serializable {
 
                 Algo algoRetorno = new Algo(e, transactionsPe, newItemsToKeep, newItemsToExplore);
                 return algoRetorno;
-
-//                ItemTransactions itemTransactions = new ItemTransactions(e, transactionsPe);
-//                return itemTransactions;
             }
         });
 
-        //itemTransactionsRDD.first();
-//        for(ItemTransactions it: itemTransactionsRDD.collect()){
-//            if(DEBUG){
-//                System.out.println("1ro");
-//                System.out.println("item: " + it.getItem());
-//                System.out.println("Transactions: " + it.getTransactions());
-//            }
-//        }
-//        JavaRDD<Algo> algos = itemTransactionsRDD.map(new Function<ItemTransactions, Algo>() {
-//            public Algo call(ItemTransactions it) throws Exception {
-//                Integer e = it.getItem();
-//                int j = itemsToExplore.indexOf(e);
-//                List<Transaction> transactionsPe = it.getTransactions();
-//
-//                useUtilityBinArraysToCalculateUpperBounds(transactionsPe, j, itemsToKeep);
-//                if(DEBUG){
-//                    System.out.println();
-//                    System.out.println("===== Projected database e: " + e + " === ");
-//                    for(Transaction tra : transactionsPe){
-//                        System.out.println(tra);
-//                    }
-//
-//                }
-//                // we now record time for identifying promising items
-//                long initialTime = System.currentTimeMillis();
-//
-//                // We will create the new list of secondary items
-//                List<Integer> newItemsToKeep = new ArrayList<Integer>();
-//                // We will create the new list of primary items
-//                List<Integer> newItemsToExplore = new ArrayList<Integer>();
-//
-//                // for each item
-//                for (int k = j+1; k < itemsToKeep.size(); k++) {
-//                    Integer itemk =  itemsToKeep.get(k);
-//
-//                    // if the sub-tree utility is no less than min util
-//                    if(utilityBinArraySU[itemk] >= minUtil) {
-//                        // and if sub-tree utility pruning is activated
-//                        if(activateSubtreeUtilityPruning){
-//                            // consider that item as a primary item
-//                            newItemsToExplore.add(itemk);
-//                        }
-//                        // consider that item as a secondary item
-//                        newItemsToKeep.add(itemk);
-//                    }else if(utilityBinArrayLU[itemk] >= minUtil)
-//                    {
-//                        // otherwise, if local utility is no less than minutil,
-//                        // consider this itemt to be a secondary item
-//                        newItemsToKeep.add(itemk);
-//                    }
-//                }
-//                // update the total time  for identifying promising items
-//                timeIdentifyPromisingItems +=  (System.currentTimeMillis() -  initialTime);
-//
-//                Algo algoRetorno = new Algo(j, transactionsPe, newItemsToKeep, newItemsToExplore);
-//                return algoRetorno;
-//            }
-//        });
         itemsToExploreRDD.unpersist();
         itemTransactionsRDD.persist(StorageLevel.MEMORY_ONLY());
         List<Algo> listAlgo = itemTransactionsRDD.collect();
