@@ -769,7 +769,7 @@ public class AlgoEFIM3 implements Serializable {
             }
         });
 
-        //itemTransactionsRDD.count();
+        //itemTransactionsRDD.first();
 //        for(ItemTransactions it: itemTransactionsRDD.collect()){
 //            if(DEBUG){
 //                System.out.println("1ro");
@@ -914,7 +914,7 @@ public class AlgoEFIM3 implements Serializable {
             }
         });
 //        tempRDD.persist(StorageLevel.MEMORY_ONLY());
-        tempRDD.count();
+        tempRDD.first();
 
         List<Item> lista = aUtilityBinArrayLU.value();
         List<Item> nlista = new ArrayList<Item>();
@@ -981,7 +981,7 @@ public class AlgoEFIM3 implements Serializable {
             }
         });
 //        tempRDD.persist(StorageLevel.MEMORY_ONLY());
-        tempRDD.count();
+        tempRDD.first();
 
         List<Item> lista = aUtilityBinArraySU.value();
         List<Item> nlista = new ArrayList<Item>();
