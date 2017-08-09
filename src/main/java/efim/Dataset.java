@@ -79,7 +79,7 @@ public class Dataset  implements Serializable {
         br.close();
 
         transacciones = sc.parallelize(transactions);
-        transacciones.persist(StorageLevel.MEMORY_ONLY());
+//        transacciones.persist(StorageLevel.MEMORY_ONLY());
     }
 
     /**

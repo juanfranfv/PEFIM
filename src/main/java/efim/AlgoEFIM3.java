@@ -38,7 +38,7 @@ import java.util.*;
  *
  * @author Souleymane Zida, Philippe Fournier-Viger using some code by Alan Souza
  */
-public class AlgoEFIM2 implements Serializable {
+public class AlgoEFIM3 implements Serializable {
 
 	/** the set of high-utility itemsets */
     private Itemsets highUtilityItemsets;
@@ -112,8 +112,8 @@ public class AlgoEFIM2 implements Serializable {
 	/**
 	 * Constructor
 	 */
-    public AlgoEFIM2() {
-         
+    public AlgoEFIM3() {
+
     }
 
     /**
@@ -121,8 +121,8 @@ public class AlgoEFIM2 implements Serializable {
      * @param minUtil  the minimum utility threshold (a positive integer)
      * @param inputPath  the input file path
      * @param outputPath  the output file path to save the result or null if to be kept in memory
-     * @param activateTransactionMerging 
-     * @param activateSubtreeUtilityPruning 
+     * @param activateTransactionMerging
+     * @param activateSubtreeUtilityPruning
      * @param maximumTransactionCount
        * @return the itemsets or null if the user choose to save to file
      * @throws IOException if exception while reading/writing to file
@@ -142,7 +142,7 @@ public class AlgoEFIM2 implements Serializable {
         // record the start time
         startTimestamp = System.currentTimeMillis();
 
-        JavaSparkContext sc = efim.SparkConnection.getContext();
+        JavaSparkContext sc = SparkConnection.getContext();
 
         // read the input file
         Dataset dataset = new Dataset(inputPath, maximumTransactionCount);
@@ -251,7 +251,7 @@ public class AlgoEFIM2 implements Serializable {
                 return transaction;
             }
         });
-        dataset.transacciones.persist(StorageLevel.MEMORY_ONLY());
+//        dataset.transacciones.persist(StorageLevel.MEMORY_ONLY());
         /*
         for(int i=0; i< dataset.getTransactions().size();i++)
         {
@@ -371,7 +371,7 @@ public class AlgoEFIM2 implements Serializable {
 			// since transactions are sorted by size
 			dataset.transactions = dataset.transactions.subList(emptyTransactionCount, dataset.transactions.size());
             dataset.transacciones = sc.parallelize(dataset.transactions);
-            dataset.transacciones.persist(StorageLevel.MEMORY_ONLY());
+//            dataset.transacciones.persist(StorageLevel.MEMORY_ONLY());
 
         }
 
@@ -388,7 +388,7 @@ public class AlgoEFIM2 implements Serializable {
         // Use an utility-bin array to calculate the sub-tree utility of each item
         useUtilityBinArrayToCalculateSubtreeUtilityFirstTime(dataset);
 
-        dataset.transacciones.unpersist();
+//        dataset.transacciones.unpersist();
         // Calculate the set of items that pass the sub-tree utility pruning condition
         List<Integer> itemsToExplore = new ArrayList<Integer>();
         List<Item> tempSU = aUtilityBinArraySU.value();
@@ -479,7 +479,7 @@ public class AlgoEFIM2 implements Serializable {
 			Integer itemJ = items.get(j);
 			int i = j - 1;
             Integer itemI = items.get(i);
-			
+
 			// we compare the twu of items i and j
 			int comparison = utilityBinArrayTWU.get(itemI).getUtility() -  utilityBinArrayTWU.get(itemJ).getUtility();
 			// if the twu is equal, we use the lexicographical order to decide whether i is greater
@@ -487,7 +487,7 @@ public class AlgoEFIM2 implements Serializable {
 			if(comparison == 0){
 				comparison = itemI - itemJ;
 			}
-			
+
 			while(comparison > 0){
 				items.set(i+1, itemI);
 
@@ -495,7 +495,7 @@ public class AlgoEFIM2 implements Serializable {
 				if(i<0){
 					break;
 				}
-				
+
 				itemI = items.get(i);
                 comparison = utilityBinArrayTWU.get(itemI).getUtility() -  utilityBinArrayTWU.get(itemJ).getUtility();				// if the twu is equal, we use the lexicographical order to decide whether i is greater
 				// than j or not.
@@ -506,7 +506,7 @@ public class AlgoEFIM2 implements Serializable {
 			items.set(i+1,itemJ);
 		}
 	}
-    
+
     /**
      * Recursive method to find all high-utility itemsets
      * @param the list of transactions containing the current prefix P
@@ -524,9 +524,9 @@ public class AlgoEFIM2 implements Serializable {
 
         // update the number of candidates explored so far
 		candidateCount += itemsToExplore.size();
-        JavaSparkContext sc = efim.SparkConnection.getContext();
+        JavaSparkContext sc = SparkConnection.getContext();
 		JavaRDD<Integer> itemsToExploreRDD = sc.parallelize(itemsToExplore);
-        itemsToExploreRDD.persist(StorageLevel.MEMORY_ONLY());
+//        itemsToExploreRDD.persist(StorageLevel.MEMORY_ONLY());
 
 		JavaRDD<Algo> itemTransactionsRDD = itemsToExploreRDD.map(new Function<Integer, Algo>(){
 		    public Algo call(Integer e) throws Exception {
@@ -827,10 +827,10 @@ public class AlgoEFIM2 implements Serializable {
 //                return algoRetorno;
 //            }
 //        });
-        itemsToExploreRDD.unpersist();
-        itemTransactionsRDD.persist(StorageLevel.MEMORY_ONLY());
+//        itemsToExploreRDD.unpersist();
+//        itemTransactionsRDD.persist(StorageLevel.MEMORY_ONLY());
         List<Algo> listAlgo = itemTransactionsRDD.collect();
-        itemTransactionsRDD.unpersist();
+//        itemTransactionsRDD.unpersist();
         for (Algo a:listAlgo) {
             List<Integer> newItemsToKeep = a.getItemsToKeep();
             List<Integer> newItemsToExplore = a.getItemsToExplore();
@@ -913,7 +913,7 @@ public class AlgoEFIM2 implements Serializable {
                 return transaction;
             }
         });
-        tempRDD.persist(StorageLevel.MEMORY_ONLY());
+//        tempRDD.persist(StorageLevel.MEMORY_ONLY());
         tempRDD.count();
 
         List<Item> lista = aUtilityBinArrayLU.value();
@@ -944,7 +944,7 @@ public class AlgoEFIM2 implements Serializable {
 			}
 		}
 
-		tempRDD.unpersist();
+//		tempRDD.unpersist();
 	}
 	
 	/**
@@ -980,7 +980,7 @@ public class AlgoEFIM2 implements Serializable {
                 return transaction;
             }
         });
-        tempRDD.persist(StorageLevel.MEMORY_ONLY());
+//        tempRDD.persist(StorageLevel.MEMORY_ONLY());
         tempRDD.count();
 
         List<Item> lista = aUtilityBinArraySU.value();
@@ -1000,7 +1000,7 @@ public class AlgoEFIM2 implements Serializable {
 
         aUtilityBinArraySU.reset();
         aUtilityBinArraySU.setValue(nlista);
-        tempRDD.unpersist();
+//        tempRDD.unpersist();
 	}
 
     /**

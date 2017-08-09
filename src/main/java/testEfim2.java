@@ -1,3 +1,4 @@
+import efim.AlgoEFIM3;
 import efim.AlgoEFIM2;
 
 import java.io.IOException;
@@ -11,13 +12,13 @@ public class testEfim2 {
     public static void main(String [] arg) throws IOException {
 
         // the input and output file paths
-        String input = fileToPath("db with utility.txt");
+        String input = fileToPath("db.txt");
 
         // the minutil threshold
-        int minutil = 100;
+        int minutil = 500000;
 
         // Run the EFIM algorithm
-        AlgoEFIM2 algo = new AlgoEFIM2();
+        AlgoEFIM3 algo = new AlgoEFIM3();
         algo.runAlgorithm(minutil,  input, null, true, Integer.MAX_VALUE, true);
         // Print statistics
         algo.printStats();
