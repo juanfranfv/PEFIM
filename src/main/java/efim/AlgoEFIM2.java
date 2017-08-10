@@ -399,7 +399,7 @@ public class AlgoEFIM2 implements Serializable {
             }
         }
 
-        dataset.transacciones.unpersist();
+        //dataset.transacciones.unpersist();
         // Calculate the set of items that pass the sub-tree utility pruning condition
         List<Integer> itemsToExplore = new ArrayList<Integer>();
         List<Item> tempSU = aUtilityBinArraySU.value();
@@ -431,12 +431,14 @@ public class AlgoEFIM2 implements Serializable {
         //======
         // Recursive call to the algorithm
         // If subtree utility pruning is activated
+        dataset.getTransactions();
+        dataset.transacciones.unpersist();
         if(activateSubtreeUtilityPruning){
             // We call the recursive algorithm with the database, secondary items and primary items
-            backtrackingEFIM(dataset.getTransactions(), itemsToKeep, itemsToExplore, 0);
+            backtrackingEFIM(dataset.getTransactions2(), itemsToKeep, itemsToExplore, 0);
         }else{
             // We call the recursive algorithm with the database and secondary items
-            backtrackingEFIM(dataset.getTransactions(), itemsToKeep, itemsToKeep, 0);
+            backtrackingEFIM(dataset.getTransactions2(), itemsToKeep, itemsToKeep, 0);
         }
 
         if(DEBUG)

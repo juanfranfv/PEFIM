@@ -133,6 +133,10 @@ public class Dataset  implements Serializable {
         return transactions;
     }
 
+    public List<Transaction> getTransactions2() {
+        return transactions;
+    }
+
 
     /**
      * Get the largest item  in this database.
