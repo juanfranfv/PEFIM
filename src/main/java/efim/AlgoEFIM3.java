@@ -14,7 +14,6 @@ import java.io.Serializable;
 import java.util.*;
 
 
-
 /* This file is copyright (c) 2012-2015 Souleymane Zida & Philippe Fournier-Viger
 * 
 * This file is part of the SPMF DATA MINING SOFTWARE
@@ -769,7 +768,7 @@ public class AlgoEFIM3 implements Serializable {
             }
         });
 
-        //itemTransactionsRDD.first();
+        //itemTransactionsRDD.count();
 //        for(ItemTransactions it: itemTransactionsRDD.collect()){
 //            if(DEBUG){
 //                System.out.println("1ro");
@@ -914,7 +913,7 @@ public class AlgoEFIM3 implements Serializable {
             }
         });
 //        tempRDD.persist(StorageLevel.MEMORY_ONLY());
-        tempRDD.first();
+        tempRDD.count();
 
         List<Item> lista = aUtilityBinArrayLU.value();
         List<Item> nlista = new ArrayList<Item>();
@@ -981,7 +980,7 @@ public class AlgoEFIM3 implements Serializable {
             }
         });
 //        tempRDD.persist(StorageLevel.MEMORY_ONLY());
-        tempRDD.first();
+        tempRDD.count();
 
         List<Item> lista = aUtilityBinArraySU.value();
         List<Item> nlista = new ArrayList<Item>();

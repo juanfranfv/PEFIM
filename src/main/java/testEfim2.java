@@ -12,10 +12,10 @@ public class testEfim2 {
     public static void main(String [] arg) throws IOException {
 
         // the input and output file paths
-        String input = fileToPath("1x5.txt");
+        String input = fileToPath("DB_Utility2.txt");
 
         // the minutil threshold
-        int minutil = 2000000;
+        int minutil = 30;
 
         // Run the EFIM algorithm
         AlgoEFIM2 algo = new AlgoEFIM2();
