@@ -7,6 +7,7 @@ import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.util.CollectionAccumulator;
+import org.apache.spark.util.LongAccumulator;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -106,6 +107,7 @@ public class AlgoEFIM2 implements Serializable {
 
     /** number of itemsets from the search tree that were considered */
 	private long candidateCount;
+	private LongAccumulator aCandidateCount;
 
 	/** If true, sub-tree utility pruning will be performed */
 	private boolean activateSubtreeUtilityPruning;
@@ -537,6 +539,8 @@ public class AlgoEFIM2 implements Serializable {
 		JavaRDD<Integer> itemsToExploreRDD = sc.parallelize(itemsToExplore);
         itemsToExploreRDD.persist(StorageLevel.MEMORY_ONLY());
 
+        aCandidateCount = sc.sc().longAccumulator();
+        aCandidateCount.setValue(candidateCount);
 		JavaRDD<Algo> itemTransactionsRDD = itemsToExploreRDD.map(new Function<Integer, Algo>(){
 		    public Algo call(Integer e) throws Exception {
 
@@ -794,7 +798,7 @@ public class AlgoEFIM2 implements Serializable {
         //System.out.println("Hola");
         // update the number of candidates explored so far
         candidateCount += itemsToExplore.size();
-
+        aCandidateCount.add(itemsToExplore.size());
         // ========  for each frequent item  e  =============
         for (int j = 0; j < itemsToExplore.size(); j++) {
             Integer e = itemsToExplore.get(j);
@@ -1349,7 +1353,7 @@ public class AlgoEFIM2 implements Serializable {
 			System.out.println(" Time sort ~: " + timeSort	+ " ms");
 		}
 		System.out.println(" Max memory:" + MemoryLogger.getInstance().getMaxMemory());
-		System.out.println(" Candidate count : "             + candidateCount);
+		System.out.println(" Candidate count : "             + aCandidateCount.value());
 		System.out.println("=====================================");
 	}
 }
