@@ -60,7 +60,7 @@ public class AlgoEFIM2 implements Serializable {
 	int minUtil;
 
 	/** if this variable is set to true, some debugging information will be shown */
-    final boolean  DEBUG = true;
+    final boolean  DEBUG = false;
 
     /** The following variables are the utility-bins array
 	// Recall that each bucket correspond to an item */
@@ -102,8 +102,10 @@ public class AlgoEFIM2 implements Serializable {
 
     /** number of times a transaction was read */
     long transactionReadingCount;
+    private LongAccumulator aTransactionReadingCount;
     /** number of merges */
     long mergeCount;
+    private LongAccumulator aMergeCount;
 
     /** number of itemsets from the search tree that were considered */
 	private long candidateCount;
@@ -132,9 +134,13 @@ public class AlgoEFIM2 implements Serializable {
      */
     public void runAlgorithm(int minUtil, String inputPath, String outputPath, boolean activateTransactionMerging, int maximumTransactionCount, boolean activateSubtreeUtilityPruning) throws IOException {
 
+        JavaSparkContext sc = SparkConnection.getContext();
         // reset variables for statistics
         mergeCount = 0;
+        aMergeCount = sc.sc().longAccumulator();
         transactionReadingCount = 0;
+        aTransactionReadingCount = sc.sc().longAccumulator();
+        aTransactionReadingCount.setValue(0);
         timeIntersections = 0;
         timeDatabaseReduction = 0;
 
@@ -142,7 +148,7 @@ public class AlgoEFIM2 implements Serializable {
         this.activateTransactionMerging = activateTransactionMerging;
         this.activateSubtreeUtilityPruning = activateSubtreeUtilityPruning;
 
-        JavaSparkContext sc = SparkConnection.getContext();
+
 
         // record the start time
         startTimestamp = System.currentTimeMillis();
@@ -293,22 +299,22 @@ public class AlgoEFIM2 implements Serializable {
                     int pos2 = t2.items.length - 1;
 
                     // if the first transaction is smaller than the second one
-                    if (DEBUG) {
-                        System.out.println();
-                        System.out.println("t1 length: " + t1.items.length);
-                        System.out.println("t1: " + t1);
-                        System.out.println("t2 length: " + t2.items.length);
-                        System.out.println("t2: " + t2);
-                    }
+//                    if (DEBUG) {
+//                        System.out.println();
+//                        System.out.println("t1 length: " + t1.items.length);
+//                        System.out.println("t1: " + t1);
+//                        System.out.println("t2 length: " + t2.items.length);
+//                        System.out.println("t2: " + t2);
+//                    }
                     if(t1.items.length < t2.items.length){
                         // while the current position in the first transaction is >0
                         while(pos1 >=0){
-                            if (DEBUG) {
-                                System.out.println();
-                                System.out.println("t2 pos2: " + t2.items[pos2]);
-                                System.out.println("t1 pos1: " + t1.items[pos1]);
-
-                            }
+//                            if (DEBUG) {
+//                                System.out.println();
+//                                System.out.println("t2 pos2: " + t2.items[pos2]);
+//                                System.out.println("t1 pos1: " + t1.items[pos1]);
+//
+//                            }
                             int subtraction = t2.items[pos2]  - t1.items[pos1];
                             if(subtraction !=0){
                                 return subtraction;
@@ -323,12 +329,12 @@ public class AlgoEFIM2 implements Serializable {
                     }else if (t1.items.length > t2.items.length){
                         // while the current position in the second transaction is >0
                         while(pos2 >=0){
-                            if (DEBUG) {
-                                System.out.println();
-                                System.out.println("t2 pos2: " + t2.items[pos2]);
-                                System.out.println("t1 pos1: " + t1.items[pos1]);
-
-                            }
+//                            if (DEBUG) {
+//                                System.out.println();
+//                                System.out.println("t2 pos2: " + t2.items[pos2]);
+//                                System.out.println("t1 pos1: " + t1.items[pos1]);
+//
+//                            }
                             int subtraction = t2.items[pos2]  - t1.items[pos1];
                             if(subtraction !=0){
                                 return subtraction;
@@ -443,10 +449,10 @@ public class AlgoEFIM2 implements Serializable {
             backtrackingEFIM(dataset.getTransactions2(), itemsToKeep, itemsToKeep, 0);
         }
 
-        if(DEBUG)
-        {
-            System.out.println("------- Paso -------");
-        }
+//        if(DEBUG)
+//        {
+//            System.out.println("------- Paso -------");
+//        }
 
         // record the end time
         endTimestamp = System.currentTimeMillis();
@@ -564,7 +570,7 @@ public class AlgoEFIM2 implements Serializable {
                 // For each transaction
                 for(Transaction transaction : transactionsOfP) {
                     // Increase the number of transaction read
-                    transactionReadingCount++;
+                    aTransactionReadingCount.add(1);
 
                     // To record the time for performing binary searh
                     long timeBinaryLocal = System.currentTimeMillis();
@@ -624,7 +630,8 @@ public class AlgoEFIM2 implements Serializable {
                                     // we will merge the transaction with the previous one
 
                                     // increase the number of consecutive transactions merged
-                                    mergeCount++;
+                                    //mergeCount++;
+                                    aMergeCount.add(1);
 
                                     // if the first consecutive merge
                                     if(consecutiveMergeCount == 0){
@@ -712,9 +719,9 @@ public class AlgoEFIM2 implements Serializable {
                 // Append item "e" to P to obtain P U {e}
                 // but at the same time translate from new name of "e"  to its old name
                 temp[prefixLength] = newNamesToOldNames[e];
-                if(DEBUG){
-                    System.out.println("Temp: " + temp[prefixLength]);
-                }
+//                if(DEBUG){
+//                    System.out.println("Temp: " + temp[prefixLength]);
+//                }
 
                 // if the utility of PU{e} is enough to be a high utility itemset
                 if(utilityPe  >= minUtil)
@@ -725,23 +732,24 @@ public class AlgoEFIM2 implements Serializable {
                     temp[prefixLength] = newNamesToOldNames[e];
                     System.arraycopy(temp, 0, copy, 0, prefixLength+1);
                     aHighUtilityItemsets.add(new Output(prefixLength, utilityPe, e, copy));
-                    if(DEBUG){
-                        System.out.println("j: " + j + ". e: " + e);
-                        System.out.print("Prefix: " +  prefixLength);
-                        System.out.println(". Utility: " +  utilityPe);
-                        System.out.println("Temp: " + Arrays.toString(temp));
-                    }
+//                    if(DEBUG){
+//                        System.out.println("j: " + j + ". e: " + e);
+//                        System.out.print("Prefix: " +  prefixLength);
+//                        System.out.println(". Utility: " +  utilityPe);
+//                        System.out.println("Temp: " + Arrays.toString(temp));
+//                    }
                 }
-
-                useUtilityBinArraysToCalculateUpperBounds(transactionsPe, j, itemsToKeep);
-                if(DEBUG){
-                    System.out.println();
-                    System.out.println("===== Projected database e: " + e + " === ");
-                    for(Transaction tra : transactionsPe){
-                        System.out.println(tra);
-                    }
-
-                }
+                int[] ubaSU = new int[newItemCount + 1];
+                int[] ubaLU = new int[newItemCount + 1];
+                useUtilityBinArraysToCalculateUpperBounds(transactionsPe, j, itemsToKeep, ubaSU, ubaLU);
+//                if(DEBUG){
+//                    System.out.println();
+//                    System.out.println("===== Projected database e: " + e + " === ");
+//                    for(Transaction tra : transactionsPe){
+//                        System.out.println(tra);
+//                    }
+//
+//                }
                 // we now record time for identifying promising items
                 long initialTime = System.currentTimeMillis();
 
@@ -755,7 +763,7 @@ public class AlgoEFIM2 implements Serializable {
                     Integer itemk =  itemsToKeep.get(k);
 
                     // if the sub-tree utility is no less than min util
-                    if(utilityBinArraySU[itemk] >= minUtil) {
+                    if(ubaSU[itemk] >= minUtil) {
                         // and if sub-tree utility pruning is activated
                         if(activateSubtreeUtilityPruning){
                             // consider that item as a primary item
@@ -763,7 +771,7 @@ public class AlgoEFIM2 implements Serializable {
                         }
                         // consider that item as a secondary item
                         newItemsToKeep.add(itemk);
-                    }else if(utilityBinArrayLU[itemk] >= minUtil)
+                    }else if(ubaLU[itemk] >= minUtil)
                     {
                         // otherwise, if local utility is no less than minutil,
                         // consider this itemt to be a secondary item
@@ -821,7 +829,8 @@ public class AlgoEFIM2 implements Serializable {
             // For each transaction
             for(Transaction transaction : transactionsOfP) {
                 // Increase the number of transaction read
-                transactionReadingCount++;
+                aTransactionReadingCount.add(1);
+                //transactionReadingCount++;
 
                 // To record the time for performing binary searh
                 long timeBinaryLocal = System.currentTimeMillis();
@@ -881,7 +890,8 @@ public class AlgoEFIM2 implements Serializable {
                                 // we will merge the transaction with the previous one
 
                                 // increase the number of consecutive transactions merged
-                                mergeCount++;
+                                //mergeCount++;
+                                aMergeCount.add(1);
 
                                 // if the first consecutive merge
                                 if(consecutiveMergeCount == 0){
@@ -969,9 +979,9 @@ public class AlgoEFIM2 implements Serializable {
             // Append item "e" to P to obtain P U {e}
             // but at the same time translate from new name of "e"  to its old name
             temp[prefixLength] = newNamesToOldNames[e];
-            if(DEBUG){
-                System.out.println("Temp: " + temp[prefixLength]);
-            }
+//            if(DEBUG){
+//                System.out.println("Temp: " + temp[prefixLength]);
+//            }
 
             // if the utility of PU{e} is enough to be a high utility itemset
             if(utilityPe  >= minUtil)
@@ -981,32 +991,34 @@ public class AlgoEFIM2 implements Serializable {
                 int[] copy = new int[prefixLength+1];
                 System.arraycopy(temp, 0, copy, 0, prefixLength+1);
                 aHighUtilityItemsets.add(new Output(prefixLength, utilityPe, e, copy));
-                if(DEBUG){
-                    System.out.println("j: " + j + ". e: " + e);
-                    System.out.print("Prefix: " +  prefixLength);
-                    System.out.println(". Utility: " +  utilityPe);
-                    System.out.println("Temp: " + Arrays.toString(temp));
-                }
+//                if(DEBUG){
+//                    System.out.println("j: " + j + ". e: " + e);
+//                    System.out.print("Prefix: " +  prefixLength);
+//                    System.out.println(". Utility: " +  utilityPe);
+//                    System.out.println("Temp: " + Arrays.toString(temp));
+//                }
             }
 
-            if(DEBUG){
-                System.out.println("1ro");
-                System.out.println("item: " + e);
-                System.out.println("Transactions: " + transactionsPe);
-            }
+//            if(DEBUG){
+//                System.out.println("1ro");
+//                System.out.println("item: " + e);
+//                System.out.println("Transactions: " + transactionsPe);
+//            }
 
 
             //==== Next, we will calculate the Local Utility and Sub-tree utility of
             // all items that could be appended to PU{e} ====
-            useUtilityBinArraysToCalculateUpperBounds(transactionsPe, j, itemsToKeep);
-            if(DEBUG){
-                System.out.println();
-                System.out.println("===== Projected database e: " + e + " === ");
-                for(Transaction tra : transactionsPe){
-                    System.out.println(tra);
-                }
-
-            }
+            int[] ubaSU = new int[newItemCount + 1];
+            int[] ubaLU = new int[newItemCount + 1];
+            useUtilityBinArraysToCalculateUpperBounds(transactionsPe, j, itemsToKeep, ubaSU, ubaLU);
+//            if(DEBUG){
+//                System.out.println();
+//                System.out.println("===== Projected database e: " + e + " === ");
+//                for(Transaction tra : transactionsPe){
+//                    System.out.println(tra);
+//                }
+//
+//            }
             // we now record time for identifying promising items
             long initialTime = System.currentTimeMillis();
 
@@ -1020,7 +1032,7 @@ public class AlgoEFIM2 implements Serializable {
                 Integer itemk =  itemsToKeep.get(k);
 
                 // if the sub-tree utility is no less than min util
-                if(utilityBinArraySU[itemk] >= minUtil) {
+                if(ubaSU[itemk] >= minUtil) {
                     // and if sub-tree utility pruning is activated
                     if(activateSubtreeUtilityPruning){
                         // consider that item as a primary item
@@ -1028,7 +1040,7 @@ public class AlgoEFIM2 implements Serializable {
                     }
                     // consider that item as a secondary item
                     newItemsToKeep.add(itemk);
-                }else if(utilityBinArrayLU[itemk] >= minUtil)
+                }else if(ubaLU[itemk] >= minUtil)
                 {
                     // otherwise, if local utility is no less than minutil,
                     // consider this itemt to be a secondary item
@@ -1216,25 +1228,25 @@ public class AlgoEFIM2 implements Serializable {
      * @param itemsToKeep the list of promising items
      */
     private void useUtilityBinArraysToCalculateUpperBounds(List<Transaction> transactionsPe,
-    		int j, List<Integer> itemsToKeep) {
+    		int j, List<Integer> itemsToKeep, int[] ubaSU, int[] ubaLU) {
 
     	// we will record the time used by this method for statistics purpose
 		long initialTime = System.currentTimeMillis();
-		
 		// For each promising item > e according to the total order
-		for (int i = j + 1; i < itemsToKeep.size(); i++) {
-			Integer item = itemsToKeep.get(i);
-			// We reset the utility bins of that item for computing the sub-tree utility and
-			// local utility
-			utilityBinArraySU[item] = 0;
-			utilityBinArrayLU[item] = 0;
-		}
+//		for (int i = j + 1; i < itemsToKeep.size(); i++) {
+//			Integer item = itemsToKeep.get(i);
+//			// We reset the utility bins of that item for computing the sub-tree utility and
+//			// local utility
+//			utilityBinArraySU[item] = 0;
+//			utilityBinArrayLU[item] = 0;
+//		}
 
 		int sumRemainingUtility;
 		// for each transaction
 		for (Transaction transaction : transactionsPe) {
 			// count the number of transactions read
-			transactionReadingCount++;
+            aTransactionReadingCount.add(1);
+			//transactionReadingCount++;
 			
 			// We reset the sum of reamining utility to 0;
 			sumRemainingUtility = 0;
@@ -1273,9 +1285,9 @@ public class AlgoEFIM2 implements Serializable {
 					// We add the utility of this item to the sum of remaining utility
 					sumRemainingUtility += transaction.getUtilities()[i];
 					// We update the sub-tree utility of that item in its utility-bin
-					utilityBinArraySU[item] += sumRemainingUtility + transaction.prefixUtility;
+					ubaSU[item] += sumRemainingUtility + transaction.prefixUtility;
 					// We update the local utility of that item in its utility-bin
-					utilityBinArrayLU[item] += transaction.transactionUtility + transaction.prefixUtility;
+					ubaLU[item] += transaction.transactionUtility + transaction.prefixUtility;
 				}
 			}
 		}
@@ -1339,8 +1351,8 @@ public class AlgoEFIM2 implements Serializable {
 				+ " ms");
 		// if in debug mode, we show more information
 		if(DEBUG) {
-			System.out.println(" Transaction merge count ~: " + mergeCount);
-			System.out.println(" Transaction read count ~: " + transactionReadingCount);
+			System.out.println(" Transaction merge count ~: " + aMergeCount.value());
+			System.out.println(" Transaction read count ~: " + aTransactionReadingCount.value());
 			
 			System.out.println(" Time intersections ~: " + timeIntersections
 					+ " ms");	
