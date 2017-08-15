@@ -6,7 +6,7 @@ import java.util.List;
 /**
  * Created by juanfranfv on 8/2/17.
  */
-public class Algo implements Serializable {
+public class Algo implements scala.Serializable {
     public List<Transaction> transactions;
     public int item;
     public List<Integer> itemsToKeep;

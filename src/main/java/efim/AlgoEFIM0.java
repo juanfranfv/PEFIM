@@ -59,7 +59,7 @@ public class AlgoEFIM0 implements Serializable {
     int minUtil;
 
     /** if this variable is set to true, some debugging information will be shown */
-    final boolean  DEBUG = false;
+    final boolean  DEBUG = true;
 
     /** The following variables are the utility-bins array
      // Recall that each bucket correspond to an item */
@@ -131,7 +131,7 @@ public class AlgoEFIM0 implements Serializable {
      * @return the itemsets or null if the user choose to save to file
      * @throws IOException if exception while reading/writing to file
      */
-    public Itemsets runAlgorithm(int minUtil, String inputPath, String outputPath, boolean activateTransactionMerging, int maximumTransactionCount, boolean activateSubtreeUtilityPruning) throws IOException {
+    public void runAlgorithm(int minUtil, String inputPath, String outputPath, boolean activateTransactionMerging, int maximumTransactionCount, boolean activateSubtreeUtilityPruning) throws IOException {
 
         // reset variables for statistics
         mergeCount=0;
@@ -363,8 +363,8 @@ public class AlgoEFIM0 implements Serializable {
             // To remove empty transactions, we just ignore the first transactions from the dataset
             // The reason is that empty transactions are always at the begining of the dataset
             // since transactions are sorted by size
-            dataset.transactions = dataset.transactions.subList(emptyTransactionCount, dataset.transactions.size());
-
+//            dataset.transactions = dataset.transactions.subList(emptyTransactionCount, dataset.transactions.size());
+            dataset.transactions = new ArrayList<Transaction>(dataset.transactions.subList(emptyTransactionCount, dataset.transactions.size()));
         }
 
 
@@ -435,8 +435,18 @@ public class AlgoEFIM0 implements Serializable {
         // check the maximum memory usage
         MemoryLogger.getInstance().checkMemory();
 
+
         // return the set of high-utility itemsets
-        return highUtilityItemsets;
+        //return highUtilityItemsets;
+        //this.highUtilityItemsets = new Itemsets("Itemsets");
+        for (Output o: aHighUtilityItemsets.value()) {
+            output(o.prefix, o.utility, o.copy);
+            //highUtilityItemsets.addItemset(hui.getItemset(), hui.getLevel());
+        }
+
+        highUtilityItemsets.printItemsets();
+        // return the set of high-utility itemsets
+        //return highUtilityItemsets;
     }
 
     /**
@@ -502,8 +512,8 @@ public class AlgoEFIM0 implements Serializable {
         aCandidateCount.setValue(itemsToExploreN.size());
 
         //Broadcasts
-        Broadcast<List<Transaction>> btransactionsOfP = sc.broadcast(transactionsOfPN);
         Broadcast<List<Integer>> bitemsToKeep = sc.broadcast(itemsToKeepN);
+        Broadcast<List<Transaction>> btransactionsOfP = sc.broadcast(transactionsOfPN);
 
 
         JavaRDD<Algo> itemTransactionsRDD = itemsToExploreRDD.map(new Function<Integer, Algo>(){
@@ -1207,17 +1217,18 @@ public class AlgoEFIM0 implements Serializable {
      * @param itemset the itemset
      * @throws IOException if error while writting to output file
      */
-    private void output(int tempPosition, int utility) throws IOException {
+    private void output(int tempPosition, int utility, int[] copy) throws IOException {
         patternCount++;
 
         // if user wants to save the results to memory
         if (writer == null) {
             // we copy the temporary buffer into a new int array
-            int[] copy = new int[tempPosition+1];
-            System.arraycopy(temp, 0, copy, 0, tempPosition+1);
+            //int[] copy = new int[tempPosition+1];
+            //System.arraycopy(temp, 0, copy, 0, tempPosition+1);
             // we create the itemset using this array and add it to the list of itemsets
             // found until now
             highUtilityItemsets.addItemset(new Itemset(copy, utility),copy.length);
+            //aHighUtilityItemsets.add(new HUI(new Itemset(copy, utility), copy.length));
         } else {
             // if user wants to save the results to file
             // create a stringuffer
@@ -1255,8 +1266,8 @@ public class AlgoEFIM0 implements Serializable {
                 + " ms");
         // if in debug mode, we show more information
         if(DEBUG) {
-            System.out.println(" Transaction merge count ~: " + mergeCount);
-            System.out.println(" Transaction read count ~: " + transactionReadingCount);
+            System.out.println(" Transaction merge count ~: " + aMergeCount.value());
+            System.out.println(" Transaction read count ~: " + aTransactionReadingCount.value());
 
             System.out.println(" Time intersections ~: " + timeIntersections
                     + " ms");
@@ -1269,7 +1280,7 @@ public class AlgoEFIM0 implements Serializable {
             System.out.println(" Time sort ~: " + timeSort	+ " ms");
         }
         System.out.println(" Max memory:" + MemoryLogger.getInstance().getMaxMemory());
-        System.out.println(" Candidate count : "             + candidateCount);
+        System.out.println(" Candidate count : "             + aCandidateCount.value());
         System.out.println("=====================================");
     }
 }

@@ -3,13 +3,14 @@ import efim.AlgoEFIM2;
 import efim.AlgoEFIM0;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
 
 /**
  * Created by juanfranfv on 7/1/17.
  */
-public class testEfim2 {
+public class testEfim2 implements Serializable{
     public static void main(String [] arg) throws IOException {
 
         // the input and output file paths
