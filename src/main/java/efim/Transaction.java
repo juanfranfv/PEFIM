@@ -18,6 +18,7 @@ package efim;
 */
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * This class represents a transaction
@@ -141,15 +142,15 @@ public class Transaction implements Serializable {
     	// In this method, we used buffers for temporary storing items and their utilities
 		// (tempItems and tempUtilities)
 		// This is for memory optimization.
-		
+
     	// for each item
     	int i = 0;
     	for(int j=0; j< items.length;j++) {
     		int item = items[j];
-    		
+
     		// Convert from old name to new name
     		int newName = oldNamesToNewNames[item];
-    		
+
     		// if the item is promising (it has a new name)
     		if(newName != 0) {
     			// copy the item and its utility
@@ -164,13 +165,53 @@ public class Transaction implements Serializable {
     	// copy the buffer of items back into the original array
     	this.items = new int[i];
     	System.arraycopy(tempItems, 0, this.items, 0, i);
-    	
+
     	// copy the buffer of utilities back into the original array
     	this.utilities = new int[i];
     	System.arraycopy(tempUtilities, 0, this.utilities, 0, i);
-    	
+
     	// Sort by increasing TWU values
     	insertionSort(this.items, this.utilities);
+	}
+
+	public void removeUnpromisingItems2(List<Integer> oldNamesToNewNames, int[] oldNamesToNewNames2) {
+		// In this method, we used buffers for temporary storing items and their utilities
+		// (tempItems and tempUtilities)
+		// This is for memory optimization.
+
+		// for each item
+		int i = 0;
+		for(int j=0; j< items.length;j++) {
+			int item = items[j];
+
+			// Convert from old name to new name
+			int newName = oldNamesToNewNames.get(item);
+			if (oldNamesToNewNames.get(item) != oldNamesToNewNames2[item])
+			{
+				System.out.println("Dif. item: " + item);
+			}
+
+			// if the item is promising (it has a new name)
+			if(newName != 0) {
+				// copy the item and its utility
+				tempItems[i] = newName;
+				tempUtilities[i] = utilities[j];
+				i++;
+			}else{
+				// else subtract the utility of the item
+				transactionUtility -= utilities[j];
+			}
+		}
+		// copy the buffer of items back into the original array
+		this.items = new int[i];
+		System.arraycopy(tempItems, 0, this.items, 0, i);
+
+		// copy the buffer of utilities back into the original array
+		this.utilities = new int[i];
+		System.arraycopy(tempUtilities, 0, this.utilities, 0, i);
+
+		// Sort by increasing TWU values
+		insertionSort(this.items, this.utilities);
 	}
 	
 	/**

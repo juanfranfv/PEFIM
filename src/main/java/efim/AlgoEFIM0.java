@@ -1,15 +1,13 @@
 package efim;
 
 
-import org.apache.avro.generic.GenericData;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
+import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.util.CollectionAccumulator;
 import org.apache.spark.util.LongAccumulator;
-import org.apache.spark.broadcast.Broadcast;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -20,10 +18,10 @@ import java.util.*;
 
 
 /* This file is copyright (c) 2012-2015 Souleymane Zida & Philippe Fournier-Viger
-* 
+*
 * This file is part of the SPMF DATA MINING SOFTWARE
 * (http://www.philippe-fournier-viger.com/spmf).
-* 
+*
 * SPMF is free software: you can redistribute it and/or modify it under the
 * terms of the GNU General Public License as published by the Free Software
 * Foundation, either version 3 of the License, or (at your option) any later
@@ -42,54 +40,50 @@ import java.util.*;
  *
  * @author Souleymane Zida, Philippe Fournier-Viger using some code by Alan Souza
  */
-public class AlgoEFIM2 implements Serializable {
+public class AlgoEFIM0 implements Serializable {
 
-	/** the set of high-utility itemsets */
+    /** the set of high-utility itemsets */
     private Itemsets highUtilityItemsets;
-    private CollectionAccumulator<Output> aHighUtilityItemsets;
 
-	/** object to write the output file */
-	BufferedWriter writer = null;
+    /** object to write the output file */
+    BufferedWriter writer = null;
 
-	/** the number of high-utility itemsets found (for statistics) */
-	private int patternCount;
+    /** the number of high-utility itemsets found (for statistics) */
+    private int patternCount;
 
-	/** the start time and end time of the last algorithm execution */
-	long startTimestamp;
-	long endTimestamp;
+    /** the start time and end time of the last algorithm execution */
+    long startTimestamp;
+    long endTimestamp;
 
-	/** the minutil threshold */
-	int minUtil;
+    /** the minutil threshold */
+    int minUtil;
 
-	/** if this variable is set to true, some debugging information will be shown */
+    /** if this variable is set to true, some debugging information will be shown */
     final boolean  DEBUG = false;
 
     /** The following variables are the utility-bins array
-	// Recall that each bucket correspond to an item */
+     // Recall that each bucket correspond to an item */
     /** utility bin array for sub-tree utility */
-	private int[] utilityBinArraySU;
-	private CollectionAccumulator<Item> aUtilityBinArraySU;
-	/** utility bin array for local utility */
-	private int[] utilityBinArrayLU;
-    private CollectionAccumulator<Item> aUtilityBinArrayLU;
+    private int[] utilityBinArraySU;
+    /** utility bin array for local utility */
+    private int[] utilityBinArrayLU;
 
     /** a temporary buffer */
-	private int [] temp= new int [500];
-	private CollectionAccumulator<Integer> aTemp;
+    private int [] temp = new int [500];
 
-	/** The total time spent for performing intersections */
-	long timeIntersections;
-	/** The total time spent for performing database reduction */
-	long timeDatabaseReduction;
-	/** The total time spent for identifying promising items */
-	long timeIdentifyPromisingItems;
-	/** The total time spent for sorting */
-	long timeSort;
-	/** The total time spent for binary search */
-	long timeBinarySearch;
+    /** The total time spent for performing intersections */
+    long timeIntersections;
+    /** The total time spent for performing database reduction */
+    long timeDatabaseReduction;
+    /** The total time spent for identifying promising items */
+    long timeIdentifyPromisingItems;
+    /** The total time spent for sorting */
+    long timeSort;
+    /** The total time spent for binary search */
+    long timeBinarySearch;
 
 
-	/** an array that map an old item name to its new name */
+    /** an array that map an old item name to its new name */
     int[] oldNameToNewNames;
     /** an array that map a new item name to its old name */
     int[] newNamesToOldNames;
@@ -104,23 +98,26 @@ public class AlgoEFIM2 implements Serializable {
 
     /** number of times a transaction was read */
     long transactionReadingCount;
-    private LongAccumulator aTransactionReadingCount;
     /** number of merges */
     long mergeCount;
-    private LongAccumulator aMergeCount;
 
     /** number of itemsets from the search tree that were considered */
-	private long candidateCount;
-	private LongAccumulator aCandidateCount;
+    private long candidateCount;
 
-	/** If true, sub-tree utility pruning will be performed */
-	private boolean activateSubtreeUtilityPruning;
+    /** If true, sub-tree utility pruning will be performed */
+    private boolean activateSubtreeUtilityPruning;
 
-	/**
-	 * Constructor
-	 */
-    public AlgoEFIM2() {
-         
+
+    private LongAccumulator aTransactionReadingCount;
+    private LongAccumulator aMergeCount;
+    private LongAccumulator aCandidateCount;
+    private CollectionAccumulator<Output> aHighUtilityItemsets;
+
+    /**
+     * Constructor
+     */
+    public AlgoEFIM0() {
+
     }
 
     /**
@@ -128,29 +125,30 @@ public class AlgoEFIM2 implements Serializable {
      * @param minUtil  the minimum utility threshold (a positive integer)
      * @param inputPath  the input file path
      * @param outputPath  the output file path to save the result or null if to be kept in memory
-     * @param activateTransactionMerging 
-     * @param activateSubtreeUtilityPruning 
+     * @param activateTransactionMerging
+     * @param activateSubtreeUtilityPruning
      * @param maximumTransactionCount
-       * @return the itemsets or null if the user choose to save to file
+     * @return the itemsets or null if the user choose to save to file
      * @throws IOException if exception while reading/writing to file
      */
-    public void runAlgorithm(int minUtil, String inputPath, String outputPath, boolean activateTransactionMerging, int maximumTransactionCount, boolean activateSubtreeUtilityPruning) throws IOException {
+    public Itemsets runAlgorithm(int minUtil, String inputPath, String outputPath, boolean activateTransactionMerging, int maximumTransactionCount, boolean activateSubtreeUtilityPruning) throws IOException {
 
-        JavaSparkContext sc = SparkConnection.getContext();
         // reset variables for statistics
-        mergeCount = 0;
-        aMergeCount = sc.sc().longAccumulator();
-        transactionReadingCount = 0;
-        aTransactionReadingCount = sc.sc().longAccumulator();
-        aTransactionReadingCount.setValue(0);
+        mergeCount=0;
+        transactionReadingCount=0;
         timeIntersections = 0;
         timeDatabaseReduction = 0;
+
+        JavaSparkContext sc = SparkConnection.getContext();
+        aMergeCount = sc.sc().longAccumulator();
+        aMergeCount.setValue(0);
+        aTransactionReadingCount = sc.sc().longAccumulator();
+        aTransactionReadingCount.setValue(0);
+        aHighUtilityItemsets = sc.sc().collectionAccumulator("HUIS");
 
         // save parameters about activating or not the optimizations
         this.activateTransactionMerging = activateTransactionMerging;
         this.activateSubtreeUtilityPruning = activateSubtreeUtilityPruning;
-
-
 
         // record the start time
         startTimestamp = System.currentTimeMillis();
@@ -163,13 +161,12 @@ public class AlgoEFIM2 implements Serializable {
 
         // if the user choose to save to file
         // create object for writing the output file
-        if (outputPath != null) {
+        if(outputPath != null) {
             writer = new BufferedWriter(new FileWriter(outputPath));
-        } else {
+        }else {
             // if the user choose to save to memory
             writer = null;
             this.highUtilityItemsets = new Itemsets("Itemsets");
-            this.aHighUtilityItemsets = sc.sc().collectionAccumulator("HUIS");
         }
 
         // reset the number of itemset found
@@ -179,9 +176,10 @@ public class AlgoEFIM2 implements Serializable {
         MemoryLogger.getInstance().reset();
 
         // if in debug mode, show the initial database in the console
-        if (DEBUG) {
+        if(DEBUG)
+        {
             System.out.println("===== Initial database === ");
-            System.out.println(dataset.toString());
+            System.out.println(dataset.toString2());
         }
 
         // Scan the database using utility-bin array to calculate the TWU
@@ -189,42 +187,31 @@ public class AlgoEFIM2 implements Serializable {
         useUtilityBinArrayToCalculateLocalUtilityFirstTime(dataset);
 
         // if in debug mode, show the TWU calculated using the utility-bin array
-        if (DEBUG) {
+        if(DEBUG)
+        {
             System.out.println("===== TWU OF SINGLE ITEMS === ");
-            for (int i = 1; i < utilityBinArrayLU.length; i++) {
+            for (int i = 1; i < utilityBinArrayLU.length; i++)
+            {
                 System.out.println("item : " + i + " twu: " + utilityBinArrayLU[i]);
-                System.out.println("item : " + i + " twu: " + aUtilityBinArrayLU.value().get(i).getUtility());
             }
             System.out.println();
-            System.out.println("RDD: " + aUtilityBinArrayLU.value());
         }
 
         // Now, we keep only the promising items (those having a twu >= minutil)
-        //List<Item> itemsToKeep = new ArrayList<Item>();
         List<Integer> itemsToKeep = new ArrayList<Integer>();
-
-        //itemsToKeep.add(new Item(0, 0));
-        for (Item i : aUtilityBinArrayLU.value()){
-            if (i.getUtility() >= minUtil) {
-                itemsToKeep.add(i.getItem());
-                //itemsToKeep.add(i);
+        for(int j=1; j< utilityBinArrayLU.length;j++) {
+            if(utilityBinArrayLU[j] >= minUtil) {
+                itemsToKeep.add(j);
             }
         }
 
-
-
-        //Sort promising items according to the increasing order of TWU
-        insertionSort(itemsToKeep, aUtilityBinArrayLU.value());
+        // Sort promising items according to the increasing order of TWU
+        insertionSort(itemsToKeep, utilityBinArrayLU);
 
         // Rename promising items according to the increasing order of TWU.
         // This will allow very fast comparison between items later by the algorithm
         // This structure will store the new name corresponding to each old name
         oldNameToNewNames = new int[dataset.getMaxItem() + 1];
-        List<Integer> listaOldNameToNewNames = new ArrayList<Integer>();
-        for (int i=0; i < dataset.getMaxItem() + 1; i++)
-        {
-            listaOldNameToNewNames.add(0);
-        }
         // This structure will store the old name corresponding to each new name
         newNamesToOldNames = new int[dataset.getMaxItem() + 1];
         // We will now give the new names starting from the name "1"
@@ -236,12 +223,10 @@ public class AlgoEFIM2 implements Serializable {
             int item = itemsToKeep.get(j);
             // give it the new name
             oldNameToNewNames[item] = currentName;
-            listaOldNameToNewNames.set(item, currentName);
             // remember its old name
             newNamesToOldNames[currentName] = item;
             // replace its old name by the new name in the list of promising items
             itemsToKeep.set(j, currentName);
-            //itemsToKeep.set(j, currentName);
             // increment by one the current name so that
             currentName++;
         }
@@ -250,51 +235,35 @@ public class AlgoEFIM2 implements Serializable {
         newItemCount = itemsToKeep.size();
         // initialize the utility-bin array for counting the subtree utility
         utilityBinArraySU = new int[newItemCount + 1];
-        aUtilityBinArraySU = sc.sc().collectionAccumulator("utility bin array SU");
+
         // if in debug mode, print to the old names and new names to the console
         // to check if they are correct
         if (DEBUG) {
             System.out.println(itemsToKeep);
             System.out.println(Arrays.toString(oldNameToNewNames));
-            System.out.println(listaOldNameToNewNames);
             System.out.println(Arrays.toString(newNamesToOldNames));
         }
 
         // We now loop over each transaction from the dataset
         // to remove unpromising items
-        Broadcast<List<Integer>> bOldNameToNewNames = sc.broadcast(listaOldNameToNewNames);
-        JavaRDD<Transaction> transaccionesRDD = dataset.transacciones.map(new Function<Transaction, Transaction>() {
-            public Transaction call(Transaction transaction) throws Exception {
-                List<Integer> listaTemp = bOldNameToNewNames.value();
-                transaction.removeUnpromisingItems2(listaTemp, oldNameToNewNames);
-                return transaction;
-            }
-        });
-        transaccionesRDD.persist(StorageLevel.MEMORY_ONLY());
-        transaccionesRDD.count();
-        /*
-        for(int i=0; i< dataset.getTransactions().size();i++)
+        for(int i=0; i< dataset.getTransactions2().size();i++)
         {
-        // Get the transaction
-        Transaction transaction  = dataset.getTransactions().get(i);
+            // Get the transaction
+            Transaction transaction  = dataset.getTransactions2().get(i);
 
-        // Remove unpromising items from the transaction and at the same time
-        // rename the items in the transaction according to their new names
-        // and sort the transaction by increasing TWU order
-        transaction.removeUnpromisingItems(oldNameToNewNames);
+            // Remove unpromising items from the transaction and at the same time
+            // rename the items in the transaction according to their new names
+            // and sort the transaction by increasing TWU order
+            transaction.removeUnpromisingItems(oldNameToNewNames);
         }
-        */
         if(DEBUG)
         {
             System.out.println("===== Database sort === ");
             //System.out.println(dataset.toString());
-            List<Transaction> temporal = transaccionesRDD.collect();
-            for(Transaction transaction : temporal) {
+            for(Transaction transaction : dataset.transactions) {
                 System.out.println(transaction.toString());
             }
         }
-
-        dataset.transacciones = transaccionesRDD;
 
         // Now we will sort transactions in the database according to the proposed
         // total order on transaction (the lexicographical order when transactions
@@ -303,7 +272,7 @@ public class AlgoEFIM2 implements Serializable {
         // We only sort if transaction merging is activated
         if(activateTransactionMerging){
             // Sort the dataset using a new comparator
-            Collections.sort(dataset.getTransactions(), new Comparator<Transaction>(){
+            Collections.sort(dataset.getTransactions2(), new Comparator<Transaction>(){
                 @Override
                 /**
                  * Compare two transactions
@@ -315,22 +284,22 @@ public class AlgoEFIM2 implements Serializable {
                     int pos2 = t2.items.length - 1;
 
                     // if the first transaction is smaller than the second one
-//                    if (DEBUG) {
-//                        System.out.println();
-//                        System.out.println("t1 length: " + t1.items.length);
-//                        System.out.println("t1: " + t1);
-//                        System.out.println("t2 length: " + t2.items.length);
-//                        System.out.println("t2: " + t2);
-//                    }
+//					if (DEBUG) {
+//						System.out.println();
+//						System.out.println("t1 length: " + t1.items.length);
+//						System.out.println("t1: " + t1);
+//						System.out.println("t2 length: " + t2.items.length);
+//						System.out.println("t2: " + t2);
+//					}
                     if(t1.items.length < t2.items.length){
                         // while the current position in the first transaction is >0
                         while(pos1 >=0){
-//                            if (DEBUG) {
-//                                System.out.println();
-//                                System.out.println("t2 pos2: " + t2.items[pos2]);
-//                                System.out.println("t1 pos1: " + t1.items[pos1]);
+//							if (DEBUG) {
+//								System.out.println();
+//								System.out.println("t2 pos2: " + t2.items[pos2]);
+//								System.out.println("t1 pos1: " + t1.items[pos1]);
 //
-//                            }
+//							}
                             int subtraction = t2.items[pos2]  - t1.items[pos1];
                             if(subtraction !=0){
                                 return subtraction;
@@ -345,12 +314,12 @@ public class AlgoEFIM2 implements Serializable {
                     }else if (t1.items.length > t2.items.length){
                         // while the current position in the second transaction is >0
                         while(pos2 >=0){
-//                            if (DEBUG) {
-//                                System.out.println();
-//                                System.out.println("t2 pos2: " + t2.items[pos2]);
-//                                System.out.println("t1 pos1: " + t1.items[pos1]);
+//							if (DEBUG) {
+//								System.out.println();
+//								System.out.println("t2 pos2: " + t2.items[pos2]);
+//								System.out.println("t1 pos1: " + t1.items[pos1]);
 //
-//                            }
+//							}
                             int subtraction = t2.items[pos2]  - t1.items[pos1];
                             if(subtraction !=0){
                                 return subtraction;
@@ -378,28 +347,26 @@ public class AlgoEFIM2 implements Serializable {
 
             });
 
-
-			// =======================REMOVE EMPTY TRANSACTIONS==========================
-			// After removing unpromising items, it may be possible that some transactions
-			// are empty. We will now remove these transactions from the database.
-			int emptyTransactionCount = 0;
-			// for each transaction
-			for(int i=0; i< dataset.transactions.size();i++)
-			{
-				// if the transaction length is 0, increase the number of empty transactions
-				Transaction transaction  = dataset.transactions.get(i);
-				if(transaction.items.length == 0){
-					emptyTransactionCount++;
-				}
-			}
-			// To remove empty transactions, we just ignore the first transactions from the dataset
-			// The reason is that empty transactions are always at the begining of the dataset
-			// since transactions are sorted by size
-			dataset.transactions = dataset.transactions.subList(emptyTransactionCount, dataset.transactions.size());
-            dataset.transacciones = sc.parallelize(dataset.transactions);
-            dataset.transacciones.persist(StorageLevel.MEMORY_ONLY());
+            // =======================REMOVE EMPTY TRANSACTIONS==========================
+            // After removing unpromising items, it may be possible that some transactions
+            // are empty. We will now remove these transactions from the database.
+            int emptyTransactionCount = 0;
+            // for each transaction
+            for(int i=0; i< dataset.getTransactions2().size();i++)
+            {
+                // if the transaction length is 0, increase the number of empty transactions
+                Transaction transaction  = dataset.getTransactions2().get(i);
+                if(transaction.items.length == 0){
+                    emptyTransactionCount++;
+                }
+            }
+            // To remove empty transactions, we just ignore the first transactions from the dataset
+            // The reason is that empty transactions are always at the begining of the dataset
+            // since transactions are sorted by size
+            dataset.transactions = dataset.transactions.subList(emptyTransactionCount, dataset.transactions.size());
 
         }
+
 
         // record the total time spent for sorting
         timeSort = System.currentTimeMillis() - timeStartSorting;
@@ -408,42 +375,28 @@ public class AlgoEFIM2 implements Serializable {
         if(DEBUG)
         {
             System.out.println("===== Database without unpromising items and sorted by TWU increasing order === ");
-            List<Transaction> temporal = dataset.getTransactions();
-            for(Transaction transaction : temporal) {
+            //System.out.println(dataset.toString());
+            for(Transaction transaction : dataset.transactions) {
                 System.out.println(transaction.toString());
             }
-            //System.out.println(dataset.toString());
         }
 
         // Use an utility-bin array to calculate the sub-tree utility of each item
-        useUtilityBinArrayToCalculateSubtreeUtilityFirstTimeOriginal(dataset);
-
-//        if (DEBUG) {
-//            System.out.println("===== Subtree OF SINGLE ITEMS === ");
-//            List<Item> tempUtilityBin = aUtilityBinArraySU.value();
-//            for (Item i: tempUtilityBin) {
-//                //System.out.println("item : " + i + " twu: " + utilityBinArraySU[i]);
-//                System.out.println("item : " + i.getItem() + " su: " + i.getUtility());
-//            }
-//        }
-
-        List<Item> tempSU = new ArrayList<Item>();
-        tempSU.add(new Item(0,0));
-        for (int i = 1; i < utilityBinArraySU.length; i++) {
-            tempSU.add(new Item(i, utilityBinArraySU[i]));
-           //System.out.println("item : " + i + " su: " + utilityBinArraySU[i]);
+        useUtilityBinArrayToCalculateSubtreeUtilityFirstTime(dataset);
+        if (DEBUG) {
+            System.out.println("===== Subtree OF SINGLE ITEMS === ");
+            for (int i = 1; i < utilityBinArraySU.length; i++) {
+                System.out.println("item : " + i + " su: " + utilityBinArraySU[i]);
+            }
         }
-
-        //dataset.transacciones.unpersist();
         // Calculate the set of items that pass the sub-tree utility pruning condition
         List<Integer> itemsToExplore = new ArrayList<Integer>();
-        //List<Item> tempSU = aUtilityBinArraySU.value();
         // if subtree utility pruning is activated
         if(activateSubtreeUtilityPruning){
             // for each item
             for(Integer item : itemsToKeep){
                 // if the subtree utility is higher or equal to minutil, then keep it
-                if (tempSU.get(item).getUtility() >= minUtil) {
+                if (utilityBinArraySU[item] >= minUtil) {
                     itemsToExplore.add(item);
                 }
             }
@@ -453,21 +406,16 @@ public class AlgoEFIM2 implements Serializable {
         if(DEBUG)
         {
             System.out.println("===== List of su === ");
-            //System.out.println(aUtilityBinArraySU.value());
+            System.out.println(Arrays.toString(utilityBinArraySU));
             System.out.println("===== List of items To Explore === ");
             System.out.println(itemsToExplore);
             System.out.println("===== List of promising items === ");
             System.out.println(itemsToKeep);
         }
 
-
-        aTemp = sc.sc().collectionAccumulator("Temp");
-
-        //======
+//    	//======
         // Recursive call to the algorithm
         // If subtree utility pruning is activated
-        dataset.getTransactions();
-        dataset.transacciones.unpersist();
         if(activateSubtreeUtilityPruning){
             // We call the recursive algorithm with the database, secondary items and primary items
             backtrackingEFIM(dataset.getTransactions2(), itemsToKeep, itemsToExplore, 0);
@@ -475,11 +423,6 @@ public class AlgoEFIM2 implements Serializable {
             // We call the recursive algorithm with the database and secondary items
             backtrackingEFIM(dataset.getTransactions2(), itemsToKeep, itemsToKeep, 0);
         }
-
-//        if(DEBUG)
-//        {
-//            System.out.println("------- Paso -------");
-//        }
 
         // record the end time
         endTimestamp = System.currentTimeMillis();
@@ -493,91 +436,83 @@ public class AlgoEFIM2 implements Serializable {
         MemoryLogger.getInstance().checkMemory();
 
         // return the set of high-utility itemsets
-        //return highUtilityItemsets;
-        //this.highUtilityItemsets = new Itemsets("Itemsets");
-        for (Output o:aHighUtilityItemsets.value()) {
-            output(o.prefix, o.utility, o.copy);
-            //highUtilityItemsets.addItemset(hui.getItemset(), hui.getLevel());
-        }
-
-        highUtilityItemsets.printItemsets();
-
-
-
-
-//		while (true) {
-//            try {
-//                Thread.sleep(1000);
-//            } catch (InterruptedException e) {
-//                // TODO Auto-generated catch block
-//                e.printStackTrace();
-//            }
-//        }
+        return highUtilityItemsets;
     }
 
-	/**
-	 * Implementation of Insertion sort for sorting a list of items by increasing order of TWU.
-	 * This has an average performance of O(n log n)
-	 * @param items list of integers to be sorted
-	 * @param items list the utility-bin array indicating the TWU of each item.
-	 */
-	public static void insertionSort(List<Integer> items, List<Item> utilityBinArrayTWU){
-		// the following lines are simply a modified an insertion sort
-		for(int j=1; j < items.size(); j++){
-			Integer itemJ = items.get(j);
-			int i = j - 1;
-            Integer itemI = items.get(i);
-			
-			// we compare the twu of items i and j
-			int comparison = utilityBinArrayTWU.get(itemI).getUtility() -  utilityBinArrayTWU.get(itemJ).getUtility();
-			// if the twu is equal, we use the lexicographical order to decide whether i is greater
-			// than j or not.
-			if(comparison == 0){
-				comparison = itemI - itemJ;
-			}
-			
-			while(comparison > 0){
-				items.set(i+1, itemI);
+    /**
+     * Implementation of Insertion sort for sorting a list of items by increasing order of TWU.
+     * This has an average performance of O(n log n)
+     * @param items list of integers to be sorted
+     * @param items list the utility-bin array indicating the TWU of each item.
+     */
+    public static void insertionSort(List<Integer> items, int [] utilityBinArrayTWU){
+        // the following lines are simply a modified an insertion sort
 
-				i--;
-				if(i<0){
-					break;
-				}
-				
-				itemI = items.get(i);
-                comparison = utilityBinArrayTWU.get(itemI).getUtility() -  utilityBinArrayTWU.get(itemJ).getUtility();				// if the twu is equal, we use the lexicographical order to decide whether i is greater
-				// than j or not.
-				if(comparison == 0){
+        for(int j=1; j< items.size(); j++){
+            Integer itemJ = items.get(j);
+            int i = j - 1;
+            Integer itemI = items.get(i);
+
+            // we compare the twu of items i and j
+            int comparison = utilityBinArrayTWU[itemI] - utilityBinArrayTWU[itemJ];
+            // if the twu is equal, we use the lexicographical order to decide whether i is greater
+            // than j or not.
+            if(comparison == 0){
+                comparison = itemI - itemJ;
+            }
+
+            while(comparison > 0){
+                items.set(i+1, itemI);
+
+                i--;
+                if(i<0){
+                    break;
+                }
+
+                itemI = items.get(i);
+                comparison = utilityBinArrayTWU[itemI] - utilityBinArrayTWU[itemJ];
+                // if the twu is equal, we use the lexicographical order to decide whether i is greater
+                // than j or not.
+                if(comparison == 0){
                     comparison = itemI - itemJ;
-				}
-			}
-			items.set(i+1,itemJ);
-		}
-	}
-    
+                }
+            }
+            items.set(i+1,itemJ);
+        }
+    }
+
     /**
      * Recursive method to find all high-utility itemsets
      * @param the list of transactions containing the current prefix P
-	 * @param itemsToKeep the list of secondary items in the p-projected database
-	 * @param itemsToExplore the list of primary items in the p-projected database
-	 * @param the current prefixLength
+     * @param itemsToKeep the list of secondary items in the p-projected database
+     * @param itemsToExplore the list of primary items in the p-projected database
+     * @param the current prefixLength
      * @throws IOException if error writing to output file
      */
-    private void backtrackingEFIM(List<Transaction> transactionsOfP,
-                                  List<Integer> itemsToKeep, List<Integer> itemsToExplore, int prefixLength) throws IOException {
+    private void backtrackingEFIM(List<Transaction> transactionsOfPN,
+                                  List<Integer> itemsToKeepN, List<Integer> itemsToExploreN, int prefixLengthN) throws IOException {
 
         // update the number of candidates explored so far
-		candidateCount += itemsToExplore.size();
+        //candidateCount += itemsToExplore.size();
         JavaSparkContext sc = SparkConnection.getContext();
-		JavaRDD<Integer> itemsToExploreRDD = sc.parallelize(itemsToExplore);
+        JavaRDD<Integer> itemsToExploreRDD = sc.parallelize(itemsToExploreN);
         itemsToExploreRDD.persist(StorageLevel.MEMORY_ONLY());
 
         aCandidateCount = sc.sc().longAccumulator();
-        aCandidateCount.setValue(candidateCount);
-		JavaRDD<Algo> itemTransactionsRDD = itemsToExploreRDD.map(new Function<Integer, Algo>(){
-		    public Algo call(Integer e) throws Exception {
+        aCandidateCount.setValue(itemsToExploreN.size());
 
-		        int j= itemsToKeep.indexOf(e);
+        //Broadcasts
+        Broadcast<List<Transaction>> btransactionsOfP = sc.broadcast(transactionsOfPN);
+        Broadcast<List<Integer>> bitemsToKeep = sc.broadcast(itemsToKeepN);
+
+
+        JavaRDD<Algo> itemTransactionsRDD = itemsToExploreRDD.map(new Function<Integer, Algo>(){
+            public Algo call(Integer e) throws Exception {
+
+                List<Integer> itemsToKeep = bitemsToKeep.value();
+                List<Transaction> transactionsOfP = btransactionsOfP.value();
+                int prefixLength = 0;
+                int j= itemsToKeep.indexOf(e);
                 // ========== PERFORM INTERSECTION =====================
                 // Calculate transactions containing P U {e}
                 // At the same time project transactions to keep what appears after "e"
@@ -825,11 +760,11 @@ public class AlgoEFIM2 implements Serializable {
         itemTransactionsRDD.count();
         itemTransactionsRDD.unpersist();
         // check the maximum memory usage for statistics purpose
-		MemoryLogger.getInstance().checkMemory();
+        MemoryLogger.getInstance().checkMemory();
     }
 
     private void backtracking(List<Transaction> transactionsOfP, List<Integer> itemsToKeep,
-        List<Integer> itemsToExplore, int prefixLength) throws IOException {
+                              List<Integer> itemsToExplore, int prefixLength) throws IOException {
         //System.out.println("Hola");
         // update the number of candidates explored so far
         candidateCount += itemsToExplore.size();
@@ -1092,7 +1027,6 @@ public class AlgoEFIM2 implements Serializable {
         MemoryLogger.getInstance().checkMemory();
     }
 
-
     /**
      * Check if two transaction are identical
      * @param t1  the first transaction
@@ -1100,108 +1034,66 @@ public class AlgoEFIM2 implements Serializable {
      * @return true if they are equal
      */
     private boolean isEqualTo(Transaction t1, Transaction t2) {
-    	// we first compare the transaction lenghts
-		int length1 = t1.items.length - t1.offset;
-		int length2 = t2.items.length - t2.offset;
-		// if not same length, then transactions are not identical
-    	if(length1 != length2){
-    		return false;
-    	}
-    	// if same length, we need to compare each element position by position,
-    	// to see if they are the same
-    	int position1 = t1.offset;
-		int position2 = t2.offset;
-		
-		// for each position in the first transaction
-		while(position1 < t1.items.length){
-			// if different from corresponding position in transaction 2
-			// return false because they are not identical
-			if(t1.items[position1]  != t2.items[position2]){
-				return false;
-			}
-			// if the same, then move to next position
-			position1++;
-			position2++;
-		}
-		// if all items are identical, then return to true
-		return true;
-	}
+        // we first compare the transaction lenghts
+        int length1 = t1.items.length - t1.offset;
+        int length2 = t2.items.length - t2.offset;
+        // if not same length, then transactions are not identical
+        if(length1 != length2){
+            return false;
+        }
+        // if same length, we need to compare each element position by position,
+        // to see if they are the same
+        int position1 = t1.offset;
+        int position2 = t2.offset;
 
-	/**
-	 * Scan the initial database to calculate the local utility of each item
-	 * using a utility-bin array
-	 * @param dataset the transaction database
-	 */
-	public void useUtilityBinArrayToCalculateLocalUtilityFirstTime(Dataset dataset) {
-        JavaSparkContext sc = SparkConnection.getContext();
+        // for each position in the first transaction
+        while(position1 < t1.items.length){
+            // if different from corresponding position in transaction 2
+            // return false because they are not identical
+            if(t1.items[position1]  != t2.items[position2]){
+                return false;
+            }
+            // if the same, then move to next position
+            position1++;
+            position2++;
+        }
+        // if all items are identical, then return to true
+        return true;
+    }
 
-		// Initialize utility bins for all items
+    /**
+     * Scan the initial database to calculate the local utility of each item
+     * using a utility-bin array
+     * @param dataset the transaction database
+     */
+    public void useUtilityBinArrayToCalculateLocalUtilityFirstTime(Dataset dataset) {
+
+        // Initialize utility bins for all items
         utilityBinArrayLU = new int[dataset.getMaxItem() + 1];
 
-        aUtilityBinArrayLU = sc.sc().collectionAccumulator("utility bin array LU");
-
-        JavaRDD<Transaction> tempRDD = dataset.transacciones.map(new Function<Transaction, Transaction>() {
-            public Transaction call(Transaction transaction) throws Exception {
-                //List<Item> vector = new ArrayList<Item>();
-                for (Integer item: transaction.getItems()) {
-                    Item i = new Item(item, transaction.transactionUtility);
-                    //vector.add(i);
-                    aUtilityBinArrayLU.add(i);
-                }
-                //if(DEBUG)
-                //{
-                    //System.out.println("vector: " + vector);
-                //}
-                //aUtilityBinArrayLU.setValue(vector);
-                return transaction;
+        // Scan the database to fill the utility bins
+        // For each transaction
+        for (Transaction transaction : dataset.getTransactions2()) {
+            // for each item
+            for(Integer item: transaction.getItems()) {
+                // we add the transaction utility to the utility bin of the item
+                utilityBinArrayLU[item] += transaction.transactionUtility;
             }
-        });
-        tempRDD.persist(StorageLevel.MEMORY_ONLY());
-        tempRDD.count();
-
-        List<Item> lista = aUtilityBinArrayLU.value();
-        List<Item> nlista = new ArrayList<Item>();
-        for (int i=0; i<dataset.getMaxItem() + 1; i++) {
-            nlista.add(new Item(i, 0));
         }
-        if(DEBUG)
-        {
-            System.out.println("RDD: " + aUtilityBinArrayLU.value());
-        }
+    }
 
-        for (Item i: lista) {
-            int utility = nlista.get(i.getItem()).utility;
-            nlista.set(i.item, new Item(i.getItem(), utility + i.getUtility()));
-        }
-
-        //aUtilityBinArrayLU.reset();
-        aUtilityBinArrayLU.setValue(nlista);
-
-		// Scan the database to fill the utility bins
-		// For each transaction
-		for (Transaction transaction : dataset.getTransactions()) {
-			// for each item
-			for(Integer item: transaction.getItems()) {
-				// we add the transaction utility to the utility bin of the item
-				utilityBinArrayLU[item] += transaction.transactionUtility;
-			}
-		}
-
-		tempRDD.unpersist();
-	}
-	
-	/**
-	 * Scan the initial database to calculate the sub-tree utility of each item
-	 * using a utility-bin array
-	 * @param dataset the transaction database
-	 */
-    public void useUtilityBinArrayToCalculateSubtreeUtilityFirstTimeOriginal(Dataset dataset) {
+    /**
+     * Scan the initial database to calculate the sub-tree utility of each item
+     * using a utility-bin array
+     * @param dataset the transaction database
+     */
+    public void useUtilityBinArrayToCalculateSubtreeUtilityFirstTime(Dataset dataset) {
 
         int sumSU;
         // Scan the database to fill the utility-bins of each item
         // For each transaction
         int contador = 0;
-        for (Transaction transaction : dataset.getTransactions()) {
+        for (Transaction transaction : dataset.getTransactions2()) {
             // We will scan the transaction backward. Thus,
             // the current sub-tree utility in that transaction is zero
             // for the last item of the transaction.
@@ -1209,7 +1101,6 @@ public class AlgoEFIM2 implements Serializable {
 
             // For each item when reading the transaction backward
             for(int i = transaction.getItems().length-1; i >=0; i--) {
-
                 // get the item
                 Integer item = transaction.getItems()[i];
 
@@ -1221,86 +1112,17 @@ public class AlgoEFIM2 implements Serializable {
 //    		   if (/*DEBUG &&*/ contador<5){
 //    		   	System.out.println("Item: " + item + ". su: " + sumSU);
 //			   }
-                if(item == 1000)
-                {
-                    if(sumSU == 12 || sumSU == 4 || sumSU == 9){
-                        System.out.println("Hola");
-                    }
-                    System.out.println("SU: " + sumSU);
-
-                }
+//                if(item == 1000)
+//                {
+//                    if(contador==145){
+//                        System.out.println("Hola");
+//                    }
+//                    System.out.println("SU: " + sumSU);
+//
+//                }
             }
-        	contador++;
+            contador++;
         }
-    }
-
-    public void useUtilityBinArrayToCalculateSubtreeUtilityFirstTime(Dataset dataset) {
-
-        //
-        // Scan the database to fill the utility-bins of each item
-        // For each transaction
-        JavaSparkContext sc = SparkConnection.getContext();
-
-        CollectionAccumulator<List<Item>> acumulador = sc.sc().collectionAccumulator("Acumulador");
-
-        JavaRDD<Transaction> tempRDD = dataset.transacciones.map(new Function<Transaction, Transaction>() {
-            public Transaction call(Transaction transaction) throws Exception {
-                int sumSU = 0;
-                List<Item> vector = new ArrayList<Item>();
-                for(int i = transaction.getItems().length-1; i >=0; i--) {
-                    // get the item
-                    Integer item = transaction.getItems()[i];
-
-                    // we add the utility of the current item to its sub-tree utility
-                    sumSU += transaction.getUtilities()[i];
-                    // we add the current sub-tree utility to the utility-bin of the item
-                    //utilityBinArraySU[item] += sumSU;
-                    Item j = new Item(item, sumSU);
-                    vector.add(j);
-                    //aUtilityBinArraySU.add(j);
-
-                    //if (DEBUG){
-                    //System.out.println("Item: " + item + ". su: " + sumSU);
-                    //}
-                }
-                //aUtilityBinArraySU.setValue(vector);
-                //if(DEBUG)
-                //{
-                    //System.out.println("vector: " + vector);
-                //}
-                acumulador.add(vector);
-                return transaction;
-            }
-        });
-        tempRDD.persist(StorageLevel.MEMORY_ONLY());
-        tempRDD.count();
-
-
-        List<Item> nlista = new ArrayList<Item>();
-        for (int i=0; i<dataset.getMaxItem() + 1; i++) {
-            nlista.add(new Item(i, 0));
-        }
-        if(DEBUG)
-        {
-            System.out.println("RDD: " + aUtilityBinArraySU.value());
-        }
-
-//        List<Item> lista = aUtilityBinArraySU.value();
-//        for (Item i: lista) {
-//            int utility = nlista.get(i.getItem()).utility;
-//            nlista.set(i.getItem(), new Item(i.getItem(), utility + i.getUtility()));
-//        }
-
-        for (List<Item> items: acumulador.value()){
-            for (Item i: items){
-                int utility = nlista.get(i.getItem()).utility;
-                nlista.set(i.getItem(), new Item(i.getItem(), utility + i.getUtility()));
-            }
-        }
-
-        //aUtilityBinArraySU.reset();
-        aUtilityBinArraySU.setValue(nlista);
-        tempRDD.unpersist();
     }
 
     /**
@@ -1311,11 +1133,11 @@ public class AlgoEFIM2 implements Serializable {
      * @param itemsToKeep the list of promising items
      */
     private void useUtilityBinArraysToCalculateUpperBounds(List<Transaction> transactionsPe,
-    		int j, List<Integer> itemsToKeep, int[] ubaSU, int[] ubaLU) {
+                                                           int j, List<Integer> itemsToKeep, int[] ubaSU, int[] ubaLU) {
 
-    	// we will record the time used by this method for statistics purpose
-		long initialTime = System.currentTimeMillis();
-		// For each promising item > e according to the total order
+        // we will record the time used by this method for statistics purpose
+        long initialTime = System.currentTimeMillis();
+        // For each promising item > e according to the total order
 //		for (int i = j + 1; i < itemsToKeep.size(); i++) {
 //			Integer item = itemsToKeep.get(i);
 //			// We reset the utility bins of that item for computing the sub-tree utility and
@@ -1324,58 +1146,58 @@ public class AlgoEFIM2 implements Serializable {
 //			utilityBinArrayLU[item] = 0;
 //		}
 
-		int sumRemainingUtility;
-		// for each transaction
-		for (Transaction transaction : transactionsPe) {
-			// count the number of transactions read
+        int sumRemainingUtility;
+        // for each transaction
+        for (Transaction transaction : transactionsPe) {
+            // count the number of transactions read
             aTransactionReadingCount.add(1);
-			//transactionReadingCount++;
-			
-			// We reset the sum of reamining utility to 0;
-			sumRemainingUtility = 0;
-			// we set high to the last promising item for doing the binary search
-			int high = itemsToKeep.size() - 1;
+            //transactionReadingCount++;
 
-			// for each item in the transaction that is greater than i when reading the transaction backward
-			// Note: >= is correct here. It should not be >.
-			for (int i = transaction.getItems().length - 1; i >= transaction.offset; i--) {
-				// get the item
-				int item = transaction.getItems()[i];
-				
-				// We will check if this item is promising using a binary search over promising items.
+            // We reset the sum of reamining utility to 0;
+            sumRemainingUtility = 0;
+            // we set high to the last promising item for doing the binary search
+            int high = itemsToKeep.size() - 1;
 
-				// This variable will be used as a flag to indicate that we found the item or not using the binary search
-				boolean contains = false;
-				// we set "low" for the binary search to the first promising item position
-				int low = 0;
+            // for each item in the transaction that is greater than i when reading the transaction backward
+            // Note: >= is correct here. It should not be >.
+            for (int i = transaction.getItems().length - 1; i >= transaction.offset; i--) {
+                // get the item
+                int item = transaction.getItems()[i];
 
-				// do the binary search
-				while (high >= low) {
-					int middle = (low + high) >>> 1; // divide by 2
-					int itemMiddle = itemsToKeep.get(middle);
-					if (itemMiddle == item) {
-						// if we found the item, then we stop
-						contains = true;
-						break;
-					} else if (itemMiddle < item) {
-						low = middle + 1;
-					} else {
-						high = middle - 1;
-					}  
-				}
-				// if the item is promising
-				if (contains) {
-					// We add the utility of this item to the sum of remaining utility
-					sumRemainingUtility += transaction.getUtilities()[i];
-					// We update the sub-tree utility of that item in its utility-bin
-					ubaSU[item] += sumRemainingUtility + transaction.prefixUtility;
-					// We update the local utility of that item in its utility-bin
-					ubaLU[item] += transaction.transactionUtility + transaction.prefixUtility;
-				}
-			}
-		}
-		// we update the time for database reduction for statistics purpose
-		timeDatabaseReduction += (System.currentTimeMillis() - initialTime);
+                // We will check if this item is promising using a binary search over promising items.
+
+                // This variable will be used as a flag to indicate that we found the item or not using the binary search
+                boolean contains = false;
+                // we set "low" for the binary search to the first promising item position
+                int low = 0;
+
+                // do the binary search
+                while (high >= low) {
+                    int middle = (low + high) >>> 1; // divide by 2
+                    int itemMiddle = itemsToKeep.get(middle);
+                    if (itemMiddle == item) {
+                        // if we found the item, then we stop
+                        contains = true;
+                        break;
+                    } else if (itemMiddle < item) {
+                        low = middle + 1;
+                    } else {
+                        high = middle - 1;
+                    }
+                }
+                // if the item is promising
+                if (contains) {
+                    // We add the utility of this item to the sum of remaining utility
+                    sumRemainingUtility += transaction.getUtilities()[i];
+                    // We update the sub-tree utility of that item in its utility-bin
+                    ubaSU[item] += sumRemainingUtility + transaction.prefixUtility;
+                    // We update the local utility of that item in its utility-bin
+                    ubaLU[item] += transaction.transactionUtility + transaction.prefixUtility;
+                }
+            }
+        }
+        // we update the time for database reduction for statistics purpose
+        timeDatabaseReduction += (System.currentTimeMillis() - initialTime);
     }
 
 
@@ -1385,70 +1207,69 @@ public class AlgoEFIM2 implements Serializable {
      * @param itemset the itemset
      * @throws IOException if error while writting to output file
      */
-    private void output(int tempPosition, int utility, int[] copy) throws IOException {
+    private void output(int tempPosition, int utility) throws IOException {
         patternCount++;
-            
-        	// if user wants to save the results to memory
-		if (writer == null) {
-			// we copy the temporary buffer into a new int array
-			//int[] copy = new int[tempPosition+1];
-			//System.arraycopy(temp, 0, copy, 0, tempPosition+1);
-			// we create the itemset using this array and add it to the list of itemsets
-			// found until now
-			highUtilityItemsets.addItemset(new Itemset(copy, utility),copy.length);
-			//aHighUtilityItemsets.add(new HUI(new Itemset(copy, utility), copy.length));
-		} else {
-			// if user wants to save the results to file
-			// create a stringuffer
-			StringBuffer buffer = new StringBuffer();
-			// append each item from the itemset to the stringbuffer, separated by spaces
-			for (int i = 0; i <= tempPosition; i++) {
-				buffer.append(temp[i]);
-				if (i != tempPosition) {
-					buffer.append(' ');
-				}
-			}
-			// append the utility of the itemset
-			buffer.append(" #UTIL: ");
-			buffer.append(utility);
-			
-			// write the stringbuffer to file and create a new line
-			// so that we are ready for writing the next itemset.
-			writer.write(buffer.toString());
-			writer.newLine();
-		}
+
+        // if user wants to save the results to memory
+        if (writer == null) {
+            // we copy the temporary buffer into a new int array
+            int[] copy = new int[tempPosition+1];
+            System.arraycopy(temp, 0, copy, 0, tempPosition+1);
+            // we create the itemset using this array and add it to the list of itemsets
+            // found until now
+            highUtilityItemsets.addItemset(new Itemset(copy, utility),copy.length);
+        } else {
+            // if user wants to save the results to file
+            // create a stringuffer
+            StringBuffer buffer = new StringBuffer();
+            // append each item from the itemset to the stringbuffer, separated by spaces
+            for (int i = 0; i <= tempPosition; i++) {
+                buffer.append(temp[i]);
+                if (i != tempPosition) {
+                    buffer.append(' ');
+                }
+            }
+            // append the utility of the itemset
+            buffer.append(" #UTIL: ");
+            buffer.append(utility);
+
+            // write the stringbuffer to file and create a new line
+            // so that we are ready for writing the next itemset.
+            writer.write(buffer.toString());
+            writer.newLine();
+        }
     }
 
 
- 
- 
+
+
     /**
      * Print statistics about the latest execution of the EFIM algorithm.
      */
-	public void printStats() {
+    public void printStats() {
 
-		System.out.println("========== EFIM v97 - STATS ============");
-		System.out.println(" minUtil = " + minUtil);
-		System.out.println(" High utility itemsets count: " + patternCount);
-		System.out.println(" Total time ~: " + (endTimestamp - startTimestamp)
-				+ " ms");
-		// if in debug mode, we show more information
-		if(DEBUG) {
-			System.out.println(" Transaction merge count ~: " + aMergeCount.value());
-			System.out.println(" Transaction read count ~: " + aTransactionReadingCount.value());
-			
-			System.out.println(" Time intersections ~: " + timeIntersections
-					+ " ms");	
-			System.out.println(" Time database reduction ~: " + timeDatabaseReduction
-					+ " ms");
-			System.out.println(" Time promising items ~: " + timeIdentifyPromisingItems
-					+ " ms");
-			System.out.println(" Time binary search ~: " + timeBinarySearch
-					+ " ms");
-			System.out.println(" Time sort ~: " + timeSort	+ " ms");
-		}
-		System.out.println(" Max memory:" + MemoryLogger.getInstance().getMaxMemory());
-		System.out.println(" Candidate count : "             + aCandidateCount.value());
-		System.out.println("=====================================");
-	}
+        System.out.println("========== EFIM v97 - STATS ============");
+        System.out.println(" minUtil = " + minUtil);
+        System.out.println(" High utility itemsets count: " + patternCount);
+        System.out.println(" Total time ~: " + (endTimestamp - startTimestamp)
+                + " ms");
+        // if in debug mode, we show more information
+        if(DEBUG) {
+            System.out.println(" Transaction merge count ~: " + mergeCount);
+            System.out.println(" Transaction read count ~: " + transactionReadingCount);
+
+            System.out.println(" Time intersections ~: " + timeIntersections
+                    + " ms");
+            System.out.println(" Time database reduction ~: " + timeDatabaseReduction
+                    + " ms");
+            System.out.println(" Time promising items ~: " + timeIdentifyPromisingItems
+                    + " ms");
+            System.out.println(" Time binary search ~: " + timeBinarySearch
+                    + " ms");
+            System.out.println(" Time sort ~: " + timeSort	+ " ms");
+        }
+        System.out.println(" Max memory:" + MemoryLogger.getInstance().getMaxMemory());
+        System.out.println(" Candidate count : "             + candidateCount);
+        System.out.println("=====================================");
+    }
 }

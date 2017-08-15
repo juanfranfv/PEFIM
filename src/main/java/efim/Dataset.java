@@ -53,7 +53,6 @@ public class Dataset  implements Serializable {
     	// Initialize a list to store transactions in memory
         transactions = new ArrayList<Transaction>();
 
-        JavaSparkContext sc = SparkConnection.getContext();
         // Create a buffered reader to read the input file
         BufferedReader br = new BufferedReader(new FileReader(datasetPath));
         String line;
@@ -78,8 +77,9 @@ public class Dataset  implements Serializable {
         System.out.println("Transaction count :" +  transactions.size());
         br.close();
 
-        transacciones = sc.parallelize(transactions);
-        transacciones.persist(StorageLevel.MEMORY_ONLY());
+//        JavaSparkContext sc = SparkConnection.getContext();
+//        transacciones = sc.parallelize(transactions);
+//        transacciones.persist(StorageLevel.MEMORY_ONLY());
     }
 
     /**
@@ -156,6 +156,19 @@ public class Dataset  implements Serializable {
 
         // We will append each transaction to this string builder
         for(Transaction transaction : transacciones.collect()) {
+            datasetContent.append(transaction.toString());
+            datasetContent.append("\n");
+        }
+        // Return the string
+        return datasetContent.toString();
+    }
+
+    public String toString2() {
+        // Create a stringbuilder for storing the string
+        StringBuilder datasetContent = new StringBuilder();
+
+        // We will append each transaction to this string builder
+        for(Transaction transaction : transactions) {
             datasetContent.append(transaction.toString());
             datasetContent.append("\n");
         }

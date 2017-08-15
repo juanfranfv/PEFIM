@@ -1,5 +1,6 @@
 import efim.AlgoEFIM3;
 import efim.AlgoEFIM2;
+import efim.AlgoEFIM0;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -15,10 +16,10 @@ public class testEfim2 {
         String input = fileToPath("db.txt");
 
         // the minutil threshold
-        int minutil = 100000;
+        int minutil = 105000;
 
         // Run the EFIM algorithm
-        AlgoEFIM2 algo = new AlgoEFIM2();
+        AlgoEFIM0 algo = new AlgoEFIM0();
         algo.runAlgorithm(minutil,  input, null, true, Integer.MAX_VALUE, true);
         // Print statistics
         algo.printStats();
