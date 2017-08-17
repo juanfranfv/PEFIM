@@ -18,13 +18,21 @@ public class testEfim2 implements Serializable{
 
         // the minutil threshold
         int minutil = 105000;
+        double tetha = 0.3;
 
         // Run the EFIM algorithm
         AlgoEFIM0 algo = new AlgoEFIM0();
-        algo.runAlgorithm(minutil,  input, null, true, Integer.MAX_VALUE, true);
+        algo.runAlgorithm(tetha,  input, null, true, Integer.MAX_VALUE, true);
         // Print statistics
         algo.printStats();
-
+//        while (true) {
+//            try {
+//                Thread.sleep(1000);
+//            } catch (InterruptedException e) {
+//                // TODO Auto-generated catch block
+//                e.printStackTrace();
+//            }
+//        }
     }
 
     public static String fileToPath(String filename) throws UnsupportedEncodingException {

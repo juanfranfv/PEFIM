@@ -1,6 +1,7 @@
 package efim;
 
 
+import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
@@ -8,6 +9,7 @@ import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.util.CollectionAccumulator;
 import org.apache.spark.util.LongAccumulator;
+import scala.Tuple2;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -42,6 +44,12 @@ import java.util.*;
  */
 public class AlgoEFIM0 implements Serializable {
 
+    /** 0 - Normal partitioning. 1 - Random partitioning. 2 - 1 to N, N to 1 partitioning */
+    private int partitioning = 2;
+
+    /** the number of workers for spark */
+    private int partitions = 4;
+
     /** the set of high-utility itemsets */
     private Itemsets highUtilityItemsets;
 
@@ -59,7 +67,7 @@ public class AlgoEFIM0 implements Serializable {
     int minUtil;
 
     /** if this variable is set to true, some debugging information will be shown */
-    final boolean  DEBUG = true;
+    final boolean  DEBUG = false;
 
     /** The following variables are the utility-bins array
      // Recall that each bucket correspond to an item */
@@ -131,7 +139,8 @@ public class AlgoEFIM0 implements Serializable {
      * @return the itemsets or null if the user choose to save to file
      * @throws IOException if exception while reading/writing to file
      */
-    public void runAlgorithm(int minUtil, String inputPath, String outputPath, boolean activateTransactionMerging, int maximumTransactionCount, boolean activateSubtreeUtilityPruning) throws IOException {
+    public void runAlgorithm(double tetha, String inputPath, String outputPath, boolean activateTransactionMerging, int maximumTransactionCount, boolean activateSubtreeUtilityPruning) throws IOException {
+
 
         // reset variables for statistics
         mergeCount=0;
@@ -155,7 +164,7 @@ public class AlgoEFIM0 implements Serializable {
 
         // read the input file
         Dataset dataset = new Dataset(inputPath, maximumTransactionCount);
-
+        int minUtil = (int)(tetha * dataset.totalUtility / 100);
         // save minUtil value selected by the user
         this.minUtil = minUtil;
 
@@ -447,6 +456,8 @@ public class AlgoEFIM0 implements Serializable {
         highUtilityItemsets.printItemsets();
         // return the set of high-utility itemsets
         //return highUtilityItemsets;
+
+
     }
 
     /**
@@ -505,69 +516,362 @@ public class AlgoEFIM0 implements Serializable {
         // update the number of candidates explored so far
         //candidateCount += itemsToExplore.size();
         JavaSparkContext sc = SparkConnection.getContext();
-        JavaRDD<Integer> itemsToExploreRDD = sc.parallelize(itemsToExploreN);
-        itemsToExploreRDD.persist(StorageLevel.MEMORY_ONLY());
-
         aCandidateCount = sc.sc().longAccumulator();
         aCandidateCount.setValue(itemsToExploreN.size());
 
-        //Broadcasts
+
         Broadcast<List<Integer>> bitemsToKeep = sc.broadcast(itemsToKeepN);
         Broadcast<List<Transaction>> btransactionsOfP = sc.broadcast(transactionsOfPN);
+        if(partitioning == 1 || partitioning == 2)
+        {
+            List<Tuple2<Integer, Integer>> listaTupla = new ArrayList<Tuple2<Integer, Integer>>();
+            Integer contador = 1;
+            for (Integer i: itemsToExploreN)
+            {
+                listaTupla.add(new Tuple2<>(contador, i));
+                contador++;
+            }
+            JavaPairRDD<Integer, Integer> pairRDD = sc.parallelizePairs(listaTupla);
+            if(partitioning == 2){
+//                for(int i=1; i<contador; i++){
+//                    System.out.println("Clave: " + i +". P: " + getPartition(i));
 
+//                    Integer resto = i%partitions;
+//                    Integer dividendo = i/partitions;
+//                    if(resto == 0)
+//                    {
+//                        if((dividendo & 1) == 0){
+//                            System.out.println("Clave: " + i +". P: " + resto);
+//                        }else{
+//                            System.out.println("Clave: " + i +". P: " + (partitions-1));
+//                        }
+//
+//
+//                    }else if((dividendo & 1) == 0)
+//                    {
+//                        //par
+//                        System.out.println("Clave: " + i +". P: " + (resto-1));
+//                    }else
+//                    {
+//                        int calculo =  partitions - resto;
+//                        System.out.println("Clave: " + i +". P: " + calculo);
+//                    }
+//                }
+                pairRDD.partitionBy(new NPartitioner(partitions));
+            }else{
+                pairRDD.partitionBy(new RandomPartitioner(partitions));
+            }
+            pairRDD.persist(StorageLevel.MEMORY_ONLY());
+            //PairRDD
+            JavaRDD<Integer> resultRDD = pairRDD.map(new Function<Tuple2<Integer, Integer>, Integer>() {
+                @Override
+                public Integer call(Tuple2<Integer, Integer> tupla) throws Exception {
+                    Integer e = tupla._2;
+                    List<Integer> itemsToKeep = bitemsToKeep.value();
+                    List<Transaction> transactionsOfP = btransactionsOfP.value();
+                    int prefixLength = 0;
+                    int j= itemsToKeep.indexOf(e);
+                    // ========== PERFORM INTERSECTION =====================
+                    // Calculate transactions containing P U {e}
+                    // At the same time project transactions to keep what appears after "e"
+                    List<Transaction> transactionsPe = new ArrayList<Transaction>();
 
-        JavaRDD<Algo> itemTransactionsRDD = itemsToExploreRDD.map(new Function<Integer, Algo>(){
-            public Algo call(Integer e) throws Exception {
+                    // variable to calculate the utility of P U {e}
+                    int utilityPe = 0;
 
-                List<Integer> itemsToKeep = bitemsToKeep.value();
-                List<Transaction> transactionsOfP = btransactionsOfP.value();
-                int prefixLength = 0;
-                int j= itemsToKeep.indexOf(e);
-                // ========== PERFORM INTERSECTION =====================
-                // Calculate transactions containing P U {e}
-                // At the same time project transactions to keep what appears after "e"
-                List<Transaction> transactionsPe = new ArrayList<Transaction>();
+                    // For merging transactions, we will keep track of the last transaction read
+                    // and the number of identical consecutive transactions
+                    Transaction previousTransaction = null;
+                    int consecutiveMergeCount = 0;
 
-                // variable to calculate the utility of P U {e}
-                int utilityPe = 0;
+                    // this variable is to record the time for performing intersection
+                    long timeFirstIntersection = System.currentTimeMillis();
 
-                // For merging transactions, we will keep track of the last transaction read
-                // and the number of identical consecutive transactions
-                Transaction previousTransaction = null;
-                int consecutiveMergeCount = 0;
+                    // For each transaction
+                    for(Transaction transaction : transactionsOfP) {
+                        // Increase the number of transaction read
+                        aTransactionReadingCount.add(1);
 
-                // this variable is to record the time for performing intersection
-                long timeFirstIntersection = System.currentTimeMillis();
+                        // To record the time for performing binary searh
+                        long timeBinaryLocal = System.currentTimeMillis();
 
-                // For each transaction
-                for(Transaction transaction : transactionsOfP) {
-                    // Increase the number of transaction read
-                    aTransactionReadingCount.add(1);
+                        // we remember the position where e appears.
+                        // we will call this position an "offset"
+                        int positionE = -1;
+                        // Variables low and high for binary search
+                        int low = transaction.offset;
+                        int high = transaction.items.length - 1;
 
-                    // To record the time for performing binary searh
-                    long timeBinaryLocal = System.currentTimeMillis();
+                        // perform binary search to find e in the transaction
+                        while (high >= low ) {
+                            int middle = (low + high) >>> 1; // divide by 2
+                            if (transaction.items[middle] < e) {
+                                low = middle + 1;
+                            }else if (transaction.items[middle] == e) {
+                                positionE =  middle;
+                                break;
+                            }  else{
+                                high = middle - 1;
+                            }
+                        }
+                        // record the time spent for performing the binary search
+                        timeBinarySearch +=  System.currentTimeMillis() - timeBinaryLocal;
 
-                    // we remember the position where e appears.
-                    // we will call this position an "offset"
-                    int positionE = -1;
-                    // Variables low and high for binary search
-                    int low = transaction.offset;
-                    int high = transaction.items.length - 1;
+    //	        	if(prefixLength == 0 && newNamesToOldNames[e] == 385) {
+    //		        	for(int i=0; i < transaction.getItems().length; i++) {
+    //		        		if(transaction.getItems()[i] == e) {
+    //		        			innerSum += transaction.getUtilities()[i];
+    //		        		}
+    //		        	}
+    //		        }
 
-                    // perform binary search to find e in the transaction
-                    while (high >= low ) {
-                        int middle = (low + high) >>> 1; // divide by 2
-                        if (transaction.items[middle] < e) {
-                            low = middle + 1;
-                        }else if (transaction.items[middle] == e) {
-                            positionE =  middle;
-                            break;
-                        }  else{
-                            high = middle - 1;
+                        // if 'e' was found in the transaction
+                        if (positionE > -1  ) {
+
+                            // optimization: if the 'e' is the last one in this transaction,
+                            // we don't keep the transaction
+                            if(transaction.getLastPosition() == positionE){
+                                // but we still update the sum of the utility of P U {e}
+                                utilityPe  += transaction.utilities[positionE] + transaction.prefixUtility;
+                            }else{
+                                // otherwise
+                                if(activateTransactionMerging && MAXIMUM_SIZE_MERGING >= (transaction.items.length - positionE)){
+                                    // we cut the transaction starting from position 'e'
+                                    Transaction projectedTransaction = new Transaction(transaction, positionE);
+                                    utilityPe  += projectedTransaction.prefixUtility;
+
+                                    // if it is the first transaction that we read
+                                    if(previousTransaction == null){
+                                        // we keep the transaction in memory
+                                        previousTransaction = projectedTransaction;
+                                    }else if (isEqualTo(projectedTransaction, previousTransaction)){
+                                        // If it is not the first transaction of the database and
+                                        // if the transaction is equal to the previously read transaction,
+                                        // we will merge the transaction with the previous one
+
+                                        // increase the number of consecutive transactions merged
+                                        //mergeCount++;
+                                        aMergeCount.add(1);
+
+                                        // if the first consecutive merge
+                                        if(consecutiveMergeCount == 0){
+                                            // copy items and their profit from the previous transaction
+                                            int itemsCount = previousTransaction.items.length - previousTransaction.offset;
+                                            int[] items = new int[itemsCount];
+                                            System.arraycopy(previousTransaction.items, previousTransaction.offset, items, 0, itemsCount);
+                                            int[] utilities = new int[itemsCount];
+                                            System.arraycopy(previousTransaction.utilities, previousTransaction.offset, utilities, 0, itemsCount);
+
+                                            // make the sum of utilities from the previous transaction
+                                            int positionPrevious = 0;
+                                            int positionProjection = projectedTransaction.offset;
+                                            while(positionPrevious < itemsCount){
+                                                utilities[positionPrevious] += projectedTransaction.utilities[positionProjection];
+                                                positionPrevious++;
+                                                positionProjection++;
+                                            }
+
+                                            // make the sum of prefix utilities
+                                            int sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
+
+                                            // create the new transaction replacing the two merged transactions
+                                            previousTransaction = new Transaction(items, utilities, previousTransaction.transactionUtility + projectedTransaction.transactionUtility);
+                                            previousTransaction.prefixUtility = sumUtilities;
+
+                                        }else{
+                                            // if not the first consecutive merge
+
+                                            // add the utilities in the projected transaction to the previously
+                                            // merged transaction
+                                            int positionPrevious = 0;
+                                            int positionProjected = projectedTransaction.offset;
+                                            int itemsCount = previousTransaction.items.length;
+                                            while(positionPrevious < itemsCount){
+                                                previousTransaction.utilities[positionPrevious] += projectedTransaction.utilities[positionProjected];
+                                                positionPrevious++;
+                                                positionProjected++;
+                                            }
+
+                                            // make also the sum of transaction utility and prefix utility
+                                            previousTransaction.transactionUtility += projectedTransaction.transactionUtility;
+                                            previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
+                                        }
+                                        // increment the number of consecutive transaction merged
+                                        consecutiveMergeCount++;
+                                    }else{
+                                        // if the transaction is not equal to the preceding transaction
+                                        // we cannot merge it so we just add it to the database
+                                        transactionsPe.add(previousTransaction);
+                                        // the transaction becomes the previous transaction
+                                        previousTransaction = projectedTransaction;
+                                        // and we reset the number of consecutive transactions merged
+                                        consecutiveMergeCount = 0;
+                                    }
+                                }else{
+                                    // Otherwise, if merging has been deactivated
+                                    // then we just create the projected transaction
+                                    Transaction projectedTransaction = new Transaction(transaction, positionE);
+                                    // we add the utility of Pe in that transaction to the total utility of Pe
+                                    utilityPe  += projectedTransaction.prefixUtility;
+                                    // we put the projected transaction in the projected database of Pe
+                                    transactionsPe.add(projectedTransaction);
+                                }
+                            }
+                            // This is an optimization for binary search:
+                            // we remember the position of E so that for the next item, we will not search
+                            // before "e" in the transaction since items are visited in lexicographical order
+                            transaction.offset = positionE;
+                        }else{
+                            // This is an optimization for binary search:
+                            // we remember the position of E so that for the next item, we will not search
+                            // before "e" in the transaction since items are visited in lexicographical order
+                            transaction.offset = low;
                         }
                     }
-                    // record the time spent for performing the binary search
-                    timeBinarySearch +=  System.currentTimeMillis() - timeBinaryLocal;
+                    // remember the total time for peforming the database projection
+                    timeIntersections += (System.currentTimeMillis() - timeFirstIntersection);
+
+                    // Add the last read transaction to the database if there is one
+                    if(previousTransaction != null){
+                        transactionsPe.add(previousTransaction);
+                    }
+
+                    // Append item "e" to P to obtain P U {e}
+                    // but at the same time translate from new name of "e"  to its old name
+                    temp[prefixLength] = newNamesToOldNames[e];
+    //                if(DEBUG){
+    //                    System.out.println("Temp: " + temp[prefixLength]);
+    //                }
+
+                    // if the utility of PU{e} is enough to be a high utility itemset
+                    if(utilityPe  >= minUtil)
+                    {
+                        // output PU{e}
+                        //output(prefixLength, utilityPe );
+                        int[] copy = new int[prefixLength+1];
+                        //temp[prefixLength] = newNamesToOldNames[e];
+                        System.arraycopy(temp, 0, copy, 0, prefixLength+1);
+                        aHighUtilityItemsets.add(new Output(prefixLength, utilityPe, e, copy));
+    //                    if(DEBUG){
+    //                        System.out.println("j: " + j + ". e: " + e);
+    //                        System.out.print("Prefix: " +  prefixLength);
+    //                        System.out.println(". Utility: " +  utilityPe);
+    //                        System.out.println("Temp: " + Arrays.toString(temp));
+    //                    }
+                    }
+                    int[] ubaSU = new int[newItemCount + 1];
+                    int[] ubaLU = new int[newItemCount + 1];
+                    useUtilityBinArraysToCalculateUpperBounds(transactionsPe, j, itemsToKeep, ubaSU, ubaLU);
+    //                if(DEBUG){
+    //                    System.out.println();
+    //                    System.out.println("===== Projected database e: " + e + " === ");
+    //                    for(Transaction tra : transactionsPe){
+    //                        System.out.println(tra);
+    //                    }
+    //
+    //                }
+                    // we now record time for identifying promising items
+                    long initialTime = System.currentTimeMillis();
+
+                    // We will create the new list of secondary items
+                    List<Integer> newItemsToKeep = new ArrayList<Integer>();
+                    // We will create the new list of primary items
+                    List<Integer> newItemsToExplore = new ArrayList<Integer>();
+
+                    // for each item
+                    for (int k = j+1; k < itemsToKeep.size(); k++) {
+                        Integer itemk =  itemsToKeep.get(k);
+
+                        // if the sub-tree utility is no less than min util
+                        if(ubaSU[itemk] >= minUtil) {
+                            // and if sub-tree utility pruning is activated
+                            if(activateSubtreeUtilityPruning){
+                                // consider that item as a primary item
+                                newItemsToExplore.add(itemk);
+                            }
+                            // consider that item as a secondary item
+                            newItemsToKeep.add(itemk);
+                        }else if(ubaLU[itemk] >= minUtil)
+                        {
+                            // otherwise, if local utility is no less than minutil,
+                            // consider this itemt to be a secondary item
+                            newItemsToKeep.add(itemk);
+                        }
+                    }
+                    // update the total time  for identifying promising items
+                    timeIdentifyPromisingItems +=  (System.currentTimeMillis() -  initialTime);
+                    if(activateSubtreeUtilityPruning){
+                        // if sub-tree utility pruning is activated, we consider primary and secondary items
+                        backtracking(transactionsPe, newItemsToKeep, newItemsToExplore,prefixLength+1);
+                    }else{
+                        // if sub-tree utility pruning is deactivated, we consider secondary items also
+                        // as primary items
+                        backtracking(transactionsPe, newItemsToKeep, newItemsToKeep,prefixLength+1);
+                    }
+                    return tupla._2;
+                }
+            });
+
+            resultRDD.persist(StorageLevel.MEMORY_ONLY());
+            resultRDD.count();
+            resultRDD.unpersist();
+            pairRDD.unpersist();
+        }
+        else{
+            JavaRDD<Integer> itemsToExploreRDD = sc.parallelize(itemsToExploreN);
+            itemsToExploreRDD.persist(StorageLevel.MEMORY_ONLY());
+            JavaRDD<Integer> itemTransactionsRDD = itemsToExploreRDD.map(new Function<Integer, Integer>(){
+                public Integer call(Integer e) throws Exception {
+
+                    List<Integer> itemsToKeep = bitemsToKeep.value();
+                    List<Transaction> transactionsOfP = btransactionsOfP.value();
+                    int prefixLength = 0;
+                    int j= itemsToKeep.indexOf(e);
+                    // ========== PERFORM INTERSECTION =====================
+                    // Calculate transactions containing P U {e}
+                    // At the same time project transactions to keep what appears after "e"
+                    List<Transaction> transactionsPe = new ArrayList<Transaction>();
+
+                    // variable to calculate the utility of P U {e}
+                    int utilityPe = 0;
+
+                    // For merging transactions, we will keep track of the last transaction read
+                    // and the number of identical consecutive transactions
+                    Transaction previousTransaction = null;
+                    int consecutiveMergeCount = 0;
+
+                    // this variable is to record the time for performing intersection
+                    long timeFirstIntersection = System.currentTimeMillis();
+
+                    // For each transaction
+                    for(Transaction transaction : transactionsOfP) {
+                        // Increase the number of transaction read
+                        aTransactionReadingCount.add(1);
+
+                        // To record the time for performing binary searh
+                        long timeBinaryLocal = System.currentTimeMillis();
+
+                        // we remember the position where e appears.
+                        // we will call this position an "offset"
+                        int positionE = -1;
+                        // Variables low and high for binary search
+                        int low = transaction.offset;
+                        int high = transaction.items.length - 1;
+
+                        // perform binary search to find e in the transaction
+                        while (high >= low ) {
+                            int middle = (low + high) >>> 1; // divide by 2
+                            if (transaction.items[middle] < e) {
+                                low = middle + 1;
+                            }else if (transaction.items[middle] == e) {
+                                positionE =  middle;
+                                break;
+                            }  else{
+                                high = middle - 1;
+                            }
+                        }
+                        // record the time spent for performing the binary search
+                        timeBinarySearch +=  System.currentTimeMillis() - timeBinaryLocal;
 
 //	        	if(prefixLength == 0 && newNamesToOldNames[e] == 385) {
 //		        	for(int i=0; i < transaction.getItems().length; i++) {
@@ -577,143 +881,143 @@ public class AlgoEFIM0 implements Serializable {
 //		        	}
 //		        }
 
-                    // if 'e' was found in the transaction
-                    if (positionE > -1  ) {
+                        // if 'e' was found in the transaction
+                        if (positionE > -1  ) {
 
-                        // optimization: if the 'e' is the last one in this transaction,
-                        // we don't keep the transaction
-                        if(transaction.getLastPosition() == positionE){
-                            // but we still update the sum of the utility of P U {e}
-                            utilityPe  += transaction.utilities[positionE] + transaction.prefixUtility;
-                        }else{
-                            // otherwise
-                            if(activateTransactionMerging && MAXIMUM_SIZE_MERGING >= (transaction.items.length - positionE)){
-                                // we cut the transaction starting from position 'e'
-                                Transaction projectedTransaction = new Transaction(transaction, positionE);
-                                utilityPe  += projectedTransaction.prefixUtility;
-
-                                // if it is the first transaction that we read
-                                if(previousTransaction == null){
-                                    // we keep the transaction in memory
-                                    previousTransaction = projectedTransaction;
-                                }else if (isEqualTo(projectedTransaction, previousTransaction)){
-                                    // If it is not the first transaction of the database and
-                                    // if the transaction is equal to the previously read transaction,
-                                    // we will merge the transaction with the previous one
-
-                                    // increase the number of consecutive transactions merged
-                                    //mergeCount++;
-                                    aMergeCount.add(1);
-
-                                    // if the first consecutive merge
-                                    if(consecutiveMergeCount == 0){
-                                        // copy items and their profit from the previous transaction
-                                        int itemsCount = previousTransaction.items.length - previousTransaction.offset;
-                                        int[] items = new int[itemsCount];
-                                        System.arraycopy(previousTransaction.items, previousTransaction.offset, items, 0, itemsCount);
-                                        int[] utilities = new int[itemsCount];
-                                        System.arraycopy(previousTransaction.utilities, previousTransaction.offset, utilities, 0, itemsCount);
-
-                                        // make the sum of utilities from the previous transaction
-                                        int positionPrevious = 0;
-                                        int positionProjection = projectedTransaction.offset;
-                                        while(positionPrevious < itemsCount){
-                                            utilities[positionPrevious] += projectedTransaction.utilities[positionProjection];
-                                            positionPrevious++;
-                                            positionProjection++;
-                                        }
-
-                                        // make the sum of prefix utilities
-                                        int sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
-
-                                        // create the new transaction replacing the two merged transactions
-                                        previousTransaction = new Transaction(items, utilities, previousTransaction.transactionUtility + projectedTransaction.transactionUtility);
-                                        previousTransaction.prefixUtility = sumUtilities;
-
-                                    }else{
-                                        // if not the first consecutive merge
-
-                                        // add the utilities in the projected transaction to the previously
-                                        // merged transaction
-                                        int positionPrevious = 0;
-                                        int positionProjected = projectedTransaction.offset;
-                                        int itemsCount = previousTransaction.items.length;
-                                        while(positionPrevious < itemsCount){
-                                            previousTransaction.utilities[positionPrevious] += projectedTransaction.utilities[positionProjected];
-                                            positionPrevious++;
-                                            positionProjected++;
-                                        }
-
-                                        // make also the sum of transaction utility and prefix utility
-                                        previousTransaction.transactionUtility += projectedTransaction.transactionUtility;
-                                        previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
-                                    }
-                                    // increment the number of consecutive transaction merged
-                                    consecutiveMergeCount++;
-                                }else{
-                                    // if the transaction is not equal to the preceding transaction
-                                    // we cannot merge it so we just add it to the database
-                                    transactionsPe.add(previousTransaction);
-                                    // the transaction becomes the previous transaction
-                                    previousTransaction = projectedTransaction;
-                                    // and we reset the number of consecutive transactions merged
-                                    consecutiveMergeCount = 0;
-                                }
+                            // optimization: if the 'e' is the last one in this transaction,
+                            // we don't keep the transaction
+                            if(transaction.getLastPosition() == positionE){
+                                // but we still update the sum of the utility of P U {e}
+                                utilityPe  += transaction.utilities[positionE] + transaction.prefixUtility;
                             }else{
-                                // Otherwise, if merging has been deactivated
-                                // then we just create the projected transaction
-                                Transaction projectedTransaction = new Transaction(transaction, positionE);
-                                // we add the utility of Pe in that transaction to the total utility of Pe
-                                utilityPe  += projectedTransaction.prefixUtility;
-                                // we put the projected transaction in the projected database of Pe
-                                transactionsPe.add(projectedTransaction);
+                                // otherwise
+                                if(activateTransactionMerging && MAXIMUM_SIZE_MERGING >= (transaction.items.length - positionE)){
+                                    // we cut the transaction starting from position 'e'
+                                    Transaction projectedTransaction = new Transaction(transaction, positionE);
+                                    utilityPe  += projectedTransaction.prefixUtility;
+
+                                    // if it is the first transaction that we read
+                                    if(previousTransaction == null){
+                                        // we keep the transaction in memory
+                                        previousTransaction = projectedTransaction;
+                                    }else if (isEqualTo(projectedTransaction, previousTransaction)){
+                                        // If it is not the first transaction of the database and
+                                        // if the transaction is equal to the previously read transaction,
+                                        // we will merge the transaction with the previous one
+
+                                        // increase the number of consecutive transactions merged
+                                        //mergeCount++;
+                                        aMergeCount.add(1);
+
+                                        // if the first consecutive merge
+                                        if(consecutiveMergeCount == 0){
+                                            // copy items and their profit from the previous transaction
+                                            int itemsCount = previousTransaction.items.length - previousTransaction.offset;
+                                            int[] items = new int[itemsCount];
+                                            System.arraycopy(previousTransaction.items, previousTransaction.offset, items, 0, itemsCount);
+                                            int[] utilities = new int[itemsCount];
+                                            System.arraycopy(previousTransaction.utilities, previousTransaction.offset, utilities, 0, itemsCount);
+
+                                            // make the sum of utilities from the previous transaction
+                                            int positionPrevious = 0;
+                                            int positionProjection = projectedTransaction.offset;
+                                            while(positionPrevious < itemsCount){
+                                                utilities[positionPrevious] += projectedTransaction.utilities[positionProjection];
+                                                positionPrevious++;
+                                                positionProjection++;
+                                            }
+
+                                            // make the sum of prefix utilities
+                                            int sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
+
+                                            // create the new transaction replacing the two merged transactions
+                                            previousTransaction = new Transaction(items, utilities, previousTransaction.transactionUtility + projectedTransaction.transactionUtility);
+                                            previousTransaction.prefixUtility = sumUtilities;
+
+                                        }else{
+                                            // if not the first consecutive merge
+
+                                            // add the utilities in the projected transaction to the previously
+                                            // merged transaction
+                                            int positionPrevious = 0;
+                                            int positionProjected = projectedTransaction.offset;
+                                            int itemsCount = previousTransaction.items.length;
+                                            while(positionPrevious < itemsCount){
+                                                previousTransaction.utilities[positionPrevious] += projectedTransaction.utilities[positionProjected];
+                                                positionPrevious++;
+                                                positionProjected++;
+                                            }
+
+                                            // make also the sum of transaction utility and prefix utility
+                                            previousTransaction.transactionUtility += projectedTransaction.transactionUtility;
+                                            previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
+                                        }
+                                        // increment the number of consecutive transaction merged
+                                        consecutiveMergeCount++;
+                                    }else{
+                                        // if the transaction is not equal to the preceding transaction
+                                        // we cannot merge it so we just add it to the database
+                                        transactionsPe.add(previousTransaction);
+                                        // the transaction becomes the previous transaction
+                                        previousTransaction = projectedTransaction;
+                                        // and we reset the number of consecutive transactions merged
+                                        consecutiveMergeCount = 0;
+                                    }
+                                }else{
+                                    // Otherwise, if merging has been deactivated
+                                    // then we just create the projected transaction
+                                    Transaction projectedTransaction = new Transaction(transaction, positionE);
+                                    // we add the utility of Pe in that transaction to the total utility of Pe
+                                    utilityPe  += projectedTransaction.prefixUtility;
+                                    // we put the projected transaction in the projected database of Pe
+                                    transactionsPe.add(projectedTransaction);
+                                }
                             }
+                            // This is an optimization for binary search:
+                            // we remember the position of E so that for the next item, we will not search
+                            // before "e" in the transaction since items are visited in lexicographical order
+                            transaction.offset = positionE;
+                        }else{
+                            // This is an optimization for binary search:
+                            // we remember the position of E so that for the next item, we will not search
+                            // before "e" in the transaction since items are visited in lexicographical order
+                            transaction.offset = low;
                         }
-                        // This is an optimization for binary search:
-                        // we remember the position of E so that for the next item, we will not search
-                        // before "e" in the transaction since items are visited in lexicographical order
-                        transaction.offset = positionE;
-                    }else{
-                        // This is an optimization for binary search:
-                        // we remember the position of E so that for the next item, we will not search
-                        // before "e" in the transaction since items are visited in lexicographical order
-                        transaction.offset = low;
                     }
-                }
-                // remember the total time for peforming the database projection
-                timeIntersections += (System.currentTimeMillis() - timeFirstIntersection);
+                    // remember the total time for peforming the database projection
+                    timeIntersections += (System.currentTimeMillis() - timeFirstIntersection);
 
-                // Add the last read transaction to the database if there is one
-                if(previousTransaction != null){
-                    transactionsPe.add(previousTransaction);
-                }
+                    // Add the last read transaction to the database if there is one
+                    if(previousTransaction != null){
+                        transactionsPe.add(previousTransaction);
+                    }
 
-                // Append item "e" to P to obtain P U {e}
-                // but at the same time translate from new name of "e"  to its old name
-                temp[prefixLength] = newNamesToOldNames[e];
+                    // Append item "e" to P to obtain P U {e}
+                    // but at the same time translate from new name of "e"  to its old name
+                    temp[prefixLength] = newNamesToOldNames[e];
 //                if(DEBUG){
 //                    System.out.println("Temp: " + temp[prefixLength]);
 //                }
 
-                // if the utility of PU{e} is enough to be a high utility itemset
-                if(utilityPe  >= minUtil)
-                {
-                    // output PU{e}
-                    //output(prefixLength, utilityPe );
-                    int[] copy = new int[prefixLength+1];
-                    //temp[prefixLength] = newNamesToOldNames[e];
-                    System.arraycopy(temp, 0, copy, 0, prefixLength+1);
-                    aHighUtilityItemsets.add(new Output(prefixLength, utilityPe, e, copy));
+                    // if the utility of PU{e} is enough to be a high utility itemset
+                    if(utilityPe  >= minUtil)
+                    {
+                        // output PU{e}
+                        //output(prefixLength, utilityPe );
+                        int[] copy = new int[prefixLength+1];
+                        //temp[prefixLength] = newNamesToOldNames[e];
+                        System.arraycopy(temp, 0, copy, 0, prefixLength+1);
+                        aHighUtilityItemsets.add(new Output(prefixLength, utilityPe, e, copy));
 //                    if(DEBUG){
 //                        System.out.println("j: " + j + ". e: " + e);
 //                        System.out.print("Prefix: " +  prefixLength);
 //                        System.out.println(". Utility: " +  utilityPe);
 //                        System.out.println("Temp: " + Arrays.toString(temp));
 //                    }
-                }
-                int[] ubaSU = new int[newItemCount + 1];
-                int[] ubaLU = new int[newItemCount + 1];
-                useUtilityBinArraysToCalculateUpperBounds(transactionsPe, j, itemsToKeep, ubaSU, ubaLU);
+                    }
+                    int[] ubaSU = new int[newItemCount + 1];
+                    int[] ubaLU = new int[newItemCount + 1];
+                    useUtilityBinArraysToCalculateUpperBounds(transactionsPe, j, itemsToKeep, ubaSU, ubaLU);
 //                if(DEBUG){
 //                    System.out.println();
 //                    System.out.println("===== Projected database e: " + e + " === ");
@@ -722,55 +1026,75 @@ public class AlgoEFIM0 implements Serializable {
 //                    }
 //
 //                }
-                // we now record time for identifying promising items
-                long initialTime = System.currentTimeMillis();
+                    // we now record time for identifying promising items
+                    long initialTime = System.currentTimeMillis();
 
-                // We will create the new list of secondary items
-                List<Integer> newItemsToKeep = new ArrayList<Integer>();
-                // We will create the new list of primary items
-                List<Integer> newItemsToExplore = new ArrayList<Integer>();
+                    // We will create the new list of secondary items
+                    List<Integer> newItemsToKeep = new ArrayList<Integer>();
+                    // We will create the new list of primary items
+                    List<Integer> newItemsToExplore = new ArrayList<Integer>();
 
-                // for each item
-                for (int k = j+1; k < itemsToKeep.size(); k++) {
-                    Integer itemk =  itemsToKeep.get(k);
+                    // for each item
+                    for (int k = j+1; k < itemsToKeep.size(); k++) {
+                        Integer itemk =  itemsToKeep.get(k);
 
-                    // if the sub-tree utility is no less than min util
-                    if(ubaSU[itemk] >= minUtil) {
-                        // and if sub-tree utility pruning is activated
-                        if(activateSubtreeUtilityPruning){
-                            // consider that item as a primary item
-                            newItemsToExplore.add(itemk);
+                        // if the sub-tree utility is no less than min util
+                        if(ubaSU[itemk] >= minUtil) {
+                            // and if sub-tree utility pruning is activated
+                            if(activateSubtreeUtilityPruning){
+                                // consider that item as a primary item
+                                newItemsToExplore.add(itemk);
+                            }
+                            // consider that item as a secondary item
+                            newItemsToKeep.add(itemk);
+                        }else if(ubaLU[itemk] >= minUtil)
+                        {
+                            // otherwise, if local utility is no less than minutil,
+                            // consider this itemt to be a secondary item
+                            newItemsToKeep.add(itemk);
                         }
-                        // consider that item as a secondary item
-                        newItemsToKeep.add(itemk);
-                    }else if(ubaLU[itemk] >= minUtil)
-                    {
-                        // otherwise, if local utility is no less than minutil,
-                        // consider this itemt to be a secondary item
-                        newItemsToKeep.add(itemk);
                     }
+                    // update the total time  for identifying promising items
+                    timeIdentifyPromisingItems +=  (System.currentTimeMillis() -  initialTime);
+                    if(activateSubtreeUtilityPruning){
+                        // if sub-tree utility pruning is activated, we consider primary and secondary items
+                        backtracking(transactionsPe, newItemsToKeep, newItemsToExplore,prefixLength+1);
+                    }else{
+                        // if sub-tree utility pruning is deactivated, we consider secondary items also
+                        // as primary items
+                        backtracking(transactionsPe, newItemsToKeep, newItemsToKeep,prefixLength+1);
+                    }
+                    //Algo algoRetorno = new Algo(e, transactionsPe, newItemsToKeep, newItemsToExplore);
+                    return e;
                 }
-                // update the total time  for identifying promising items
-                timeIdentifyPromisingItems +=  (System.currentTimeMillis() -  initialTime);
-                if(activateSubtreeUtilityPruning){
-                    // if sub-tree utility pruning is activated, we consider primary and secondary items
-                    backtracking(transactionsPe, newItemsToKeep, newItemsToExplore,prefixLength+1);
-                }else{
-                    // if sub-tree utility pruning is deactivated, we consider secondary items also
-                    // as primary items
-                    backtracking(transactionsPe, newItemsToKeep, newItemsToKeep,prefixLength+1);
-                }
-                Algo algoRetorno = new Algo(e, transactionsPe, newItemsToKeep, newItemsToExplore);
-                return algoRetorno;
-            }
-        });
-
-        itemsToExploreRDD.unpersist();
-        itemTransactionsRDD.persist(StorageLevel.MEMORY_ONLY());
-        itemTransactionsRDD.count();
-        itemTransactionsRDD.unpersist();
+            });
+            itemTransactionsRDD.persist(StorageLevel.MEMORY_ONLY());
+            itemTransactionsRDD.count();
+            itemTransactionsRDD.unpersist();
+            itemsToExploreRDD.unpersist();
+        }
         // check the maximum memory usage for statistics purpose
         MemoryLogger.getInstance().checkMemory();
+    }
+
+    public int getPartition(Integer clave){
+        Integer numParts = partitions;
+        Integer resto = clave%numParts;
+        Integer dividendo = clave/numParts;
+        if(resto == 0)
+        {
+            if((dividendo & 1) == 0) {
+                return resto;
+            }
+            return  (numParts-1);
+        }else if((dividendo & 1) == 0)
+        {
+            //par
+            return (resto-1);
+        }
+        int calculo =  numParts - resto;
+        return calculo;
+
     }
 
     private void backtracking(List<Transaction> transactionsOfP, List<Integer> itemsToKeep,

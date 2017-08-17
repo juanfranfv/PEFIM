@@ -39,6 +39,7 @@ public class Dataset  implements Serializable {
 	/** the list of transactions in this dataset */
 	List<Transaction> transactions;
     JavaRDD<Transaction> transacciones;
+    int totalUtility  = 0;
 	/** the largest item name */
 	private int maxItem = 0;
 
@@ -75,6 +76,7 @@ public class Dataset  implements Serializable {
         }
         //****** Show the number of transactions in this dataset**************************//
         System.out.println("Transaction count :" +  transactions.size());
+        System.out.println("BD utility :" +  totalUtility);
         br.close();
 
 //        JavaSparkContext sc = SparkConnection.getContext();
@@ -118,6 +120,7 @@ public class Dataset  implements Serializable {
                 maxItem = items[i];
             }
         }
+        totalUtility += transactionUtility;
 
 		// create the transaction object for this transaction and return it
 		return new Transaction(items, utilities, transactionUtility);
