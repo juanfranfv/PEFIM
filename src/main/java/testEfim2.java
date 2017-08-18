@@ -14,25 +14,25 @@ public class testEfim2 implements Serializable{
     public static void main(String [] arg) throws IOException {
 
         // the input and output file paths
-        String input = fileToPath("db.txt");
+        String input = fileToPath("datasets/chess_utility_spmf.txt");
 
         // the minutil threshold
-        int minutil = 105000;
+        int minutil = 366632;
         double tetha = 0.3;
 
         // Run the EFIM algorithm
         AlgoEFIM0 algo = new AlgoEFIM0();
-        algo.runAlgorithm(tetha,  input, null, true, Integer.MAX_VALUE, true);
+        algo.runAlgorithm(minutil,  input, null, true, Integer.MAX_VALUE, true);
         // Print statistics
         algo.printStats();
-//        while (true) {
-//            try {
-//                Thread.sleep(1000);
-//            } catch (InterruptedException e) {
-//                // TODO Auto-generated catch block
-//                e.printStackTrace();
-//            }
-//        }
+        while (true) {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
     }
 
     public static String fileToPath(String filename) throws UnsupportedEncodingException {

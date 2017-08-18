@@ -1,6 +1,7 @@
 package efim;
 
 
+import org.apache.spark.TaskContext;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -9,6 +10,7 @@ import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.util.CollectionAccumulator;
 import org.apache.spark.util.LongAccumulator;
+import org.apache.spark.util.SizeEstimator;
 import scala.Tuple2;
 
 import java.io.BufferedWriter;
@@ -45,7 +47,7 @@ import java.util.*;
 public class AlgoEFIM0 implements Serializable {
 
     /** 0 - Normal partitioning. 1 - Random partitioning. 2 - 1 to N, N to 1 partitioning */
-    private int partitioning = 2;
+    private int partitioning = 0;
 
     /** the number of workers for spark */
     private int partitions = 4;
@@ -139,7 +141,7 @@ public class AlgoEFIM0 implements Serializable {
      * @return the itemsets or null if the user choose to save to file
      * @throws IOException if exception while reading/writing to file
      */
-    public void runAlgorithm(double tetha, String inputPath, String outputPath, boolean activateTransactionMerging, int maximumTransactionCount, boolean activateSubtreeUtilityPruning) throws IOException {
+    public void runAlgorithm(int minUtil, String inputPath, String outputPath, boolean activateTransactionMerging, int maximumTransactionCount, boolean activateSubtreeUtilityPruning) throws IOException {
 
 
         // reset variables for statistics
@@ -164,7 +166,7 @@ public class AlgoEFIM0 implements Serializable {
 
         // read the input file
         Dataset dataset = new Dataset(inputPath, maximumTransactionCount);
-        int minUtil = (int)(tetha * dataset.totalUtility / 100);
+        //int minUtil = (int)(tetha * dataset.totalUtility / 100);
         // save minUtil value selected by the user
         this.minUtil = minUtil;
 
@@ -452,8 +454,11 @@ public class AlgoEFIM0 implements Serializable {
             output(o.prefix, o.utility, o.copy);
             //highUtilityItemsets.addItemset(hui.getItemset(), hui.getLevel());
         }
+        List<Output> lista;
 
-        highUtilityItemsets.printItemsets();
+        if(DEBUG){
+            highUtilityItemsets.printItemsets();
+        }
         // return the set of high-utility itemsets
         //return highUtilityItemsets;
 
@@ -519,7 +524,7 @@ public class AlgoEFIM0 implements Serializable {
         aCandidateCount = sc.sc().longAccumulator();
         aCandidateCount.setValue(itemsToExploreN.size());
 
-
+        System.out.println("Size: " + SizeEstimator.estimate(transactionsOfPN));
         Broadcast<List<Integer>> bitemsToKeep = sc.broadcast(itemsToKeepN);
         Broadcast<List<Transaction>> btransactionsOfP = sc.broadcast(transactionsOfPN);
         if(partitioning == 1 || partitioning == 2)
@@ -813,9 +818,11 @@ public class AlgoEFIM0 implements Serializable {
             });
 
             resultRDD.persist(StorageLevel.MEMORY_ONLY());
-            resultRDD.count();
-            resultRDD.unpersist();
-            pairRDD.unpersist();
+            List<Integer> resultado = resultRDD.collect();
+//            resultRDD.unpersist();
+//            pairRDD.unpersist();
+//            System.out.println(resultado);
+//            System.out.println(itemsToKeepN);
         }
         else{
             JavaRDD<Integer> itemsToExploreRDD = sc.parallelize(itemsToExploreN);
@@ -1064,14 +1071,18 @@ public class AlgoEFIM0 implements Serializable {
                         // as primary items
                         backtracking(transactionsPe, newItemsToKeep, newItemsToKeep,prefixLength+1);
                     }
+
                     //Algo algoRetorno = new Algo(e, transactionsPe, newItemsToKeep, newItemsToExplore);
                     return e;
                 }
             });
             itemTransactionsRDD.persist(StorageLevel.MEMORY_ONLY());
-            itemTransactionsRDD.count();
-            itemTransactionsRDD.unpersist();
-            itemsToExploreRDD.unpersist();
+            List<Integer> resultado = itemTransactionsRDD.collect();
+//            itemTransactionsRDD.unpersist();
+//            itemsToExploreRDD.unpersist();
+//            System.out.println(resultado);
+            //System.out.println(itemsToExploreRDD.collect());
+//            System.out.println(itemsToExploreN);
         }
         // check the maximum memory usage for statistics purpose
         MemoryLogger.getInstance().checkMemory();
@@ -1103,6 +1114,9 @@ public class AlgoEFIM0 implements Serializable {
         // update the number of candidates explored so far
         candidateCount += itemsToExplore.size();
         aCandidateCount.add(itemsToExplore.size());
+        //System.out.println("Entre");
+        TaskContext ctx = TaskContext.get();
+        System.out.println("Stage: " + ctx.stageId() + " Partition: " + ctx.partitionId());
         // ========  for each frequent item  e  =============
         for (int j = 0; j < itemsToExplore.size(); j++) {
             Integer e = itemsToExplore.get(j);

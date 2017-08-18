@@ -18,5 +18,11 @@ public class Output implements Serializable {
         this.copy = copy;
     }
 
+    public String toString(){
+        StringBuffer r = new StringBuffer();
+        r.append(utility);
+        return r.toString();
+    }
+
 
 }
