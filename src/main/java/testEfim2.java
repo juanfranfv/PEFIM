@@ -14,7 +14,13 @@ public class testEfim2 implements Serializable{
     public static void main(String [] arg) throws IOException {
 
         // the input and output file paths
-        String input = fileToPath("datasets/chess_utility_spmf.txt");
+        String input;
+        if(arg.length > 0){
+            input = arg[0];
+        }else {
+            input = fileToPath("datasets/chess_utility_spmf.txt");
+        }
+
 
         // the minutil threshold
         int minutil = 366632;
