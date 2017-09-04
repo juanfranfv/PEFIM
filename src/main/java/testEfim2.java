@@ -15,8 +15,10 @@ public class testEfim2 implements Serializable{
 
         // the input and output file paths
         String input;
+        String output = null;
         if(arg.length > 0){
             input = arg[0];
+            output = arg[1];
         }else {
             input = fileToPath("datasets/chess_utility_spmf.txt");
         }
@@ -28,17 +30,17 @@ public class testEfim2 implements Serializable{
 
         // Run the EFIM algorithm
         AlgoEFIM0 algo = new AlgoEFIM0();
-        algo.runAlgorithm(minutil,  input, null, true, Integer.MAX_VALUE, true);
+        algo.runAlgorithm(minutil,  input, output, true, Integer.MAX_VALUE, true);
         // Print statistics
         algo.printStats();
-        while (true) {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
-        }
+//        while (true) {
+//            try {
+//                Thread.sleep(1000);
+//            } catch (InterruptedException e) {
+//                // TODO Auto-generated catch block
+//                e.printStackTrace();
+//            }
+//        }
     }
 
     public static String fileToPath(String filename) throws UnsupportedEncodingException {

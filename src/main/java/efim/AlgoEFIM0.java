@@ -464,9 +464,11 @@ public class AlgoEFIM0 implements Serializable {
             output(o.prefix, o.utility, o.copy);
             //highUtilityItemsets.addItemset(hui.getItemset(), hui.getLevel());
         }
-        if(DEBUG){
+        if(DEBUG) {
             highUtilityItemsets.printItemsets();
+
         }
+
         // return the set of high-utility itemsets
         //return highUtilityItemsets;
 
