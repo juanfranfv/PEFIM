@@ -448,10 +448,7 @@ public class AlgoEFIM0 implements Serializable {
         // record the end time
         endTimestamp = System.currentTimeMillis();
 
-        //close the output file
-        if(writer != null) {
-            writer.close();
-        }
+
 
         // check the maximum memory usage
         MemoryLogger.getInstance().checkMemory();
@@ -472,7 +469,10 @@ public class AlgoEFIM0 implements Serializable {
         // return the set of high-utility itemsets
         //return highUtilityItemsets;
 
-
+        //close the output file
+        if(writer != null) {
+            writer.close();
+        }
     }
 
     /**
@@ -1769,7 +1769,7 @@ public class AlgoEFIM0 implements Serializable {
     /**
      * Print statistics about the latest execution of the EFIM algorithm.
      */
-    public void printStats() {
+    public void printStats() throws IOException {
 
         System.out.println("========== EFIM v97 - STATS ============");
         System.out.println(" minUtil = " + minUtil);
@@ -1794,5 +1794,16 @@ public class AlgoEFIM0 implements Serializable {
         System.out.println(" Max memory:" + MemoryLogger.getInstance().getMaxMemory());
         System.out.println(" Candidate count : "             + candidateCount);
         System.out.println("=====================================");
+        if(writer != null){
+            StringBuffer buffer = new StringBuffer();
+            buffer.append("========== EFIM v97 - STATS ============");
+            buffer.append("\n");
+            buffer.append(" minUtil = " + minUtil);
+            buffer.append("\n");
+            buffer.append(" High utility itemsets count: " + patternCount);
+            buffer.append("\n");
+            buffer.append(" Total time ~: " + (endTimestamp - startTimestamp) + " ms");
+            writer.write(buffer.toString());
+        }
     }
 }
