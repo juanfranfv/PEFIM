@@ -22,6 +22,7 @@ import java.util.*;
 
 
 
+
 /* This file is copyright (c) 2012-2015 Souleymane Zida & Philippe Fournier-Viger
 *
 * This file is part of the SPMF DATA MINING SOFTWARE
@@ -57,7 +58,7 @@ public class AlgoEFIM0 implements Serializable {
     private Itemsets highUtilityItemsets;
 
     /** object to write the output file */
-    BufferedWriter writer = null;
+    Boolean writer = null;
 
     /** the number of high-utility itemsets found (for statistics) */
     private int patternCount;
@@ -133,6 +134,8 @@ public class AlgoEFIM0 implements Serializable {
     Broadcast<Boolean> bactivateTransactionMerging;
     Broadcast<Integer> bMAXIMUM_SIZE_MERGING;
 
+    String outPath;
+
     /**
      * Constructor
      */
@@ -183,7 +186,9 @@ public class AlgoEFIM0 implements Serializable {
         // if the user choose to save to file
         // create object for writing the output file
         if(outputPath != null) {
-            writer = new BufferedWriter(new FileWriter(outputPath));
+//            writer = new BufferedWriter(new FileWriter(outputPath));
+            writer = true;
+            outPath = outputPath;
         }else {
             // if the user choose to save to memory
             writer = null;
@@ -470,9 +475,9 @@ public class AlgoEFIM0 implements Serializable {
         //return highUtilityItemsets;
 
         //close the output file
-        if(writer != null) {
-            writer.close();
-        }
+//        if(writer != null) {
+//            writer.close();
+//        }
     }
 
     /**
@@ -1758,8 +1763,8 @@ public class AlgoEFIM0 implements Serializable {
 
             // write the stringbuffer to file and create a new line
             // so that we are ready for writing the next itemset.
-            writer.write(buffer.toString());
-            writer.newLine();
+//            writer.write(buffer.toString());
+//            writer.newLine();
         }
     }
 
@@ -1794,16 +1799,18 @@ public class AlgoEFIM0 implements Serializable {
         System.out.println(" Max memory:" + MemoryLogger.getInstance().getMaxMemory());
         System.out.println(" Candidate count : "             + candidateCount);
         System.out.println("=====================================");
-        if(writer != null){
-            StringBuffer buffer = new StringBuffer();
-            buffer.append("========== EFIM v97 - STATS ============");
-            buffer.append("\n");
-            buffer.append(" minUtil = " + minUtil);
-            buffer.append("\n");
-            buffer.append(" High utility itemsets count: " + patternCount);
-            buffer.append("\n");
-            buffer.append(" Total time ~: " + (endTimestamp - startTimestamp) + " ms");
-            writer.write(buffer.toString());
+        if(writer){
+            List<String> respuesta = new ArrayList<String>();
+            respuesta.add("========== EFIM v97 - STATS ============");
+//            respuesta.add("\n");
+            respuesta.add(" minUtil = " + minUtil);
+//            respuesta.add("\n");
+            respuesta.add(" High utility itemsets count: " + patternCount);
+//            respuesta.add("\n");
+            respuesta.add(" Total time ~: " + (endTimestamp - startTimestamp) + " ms");
+            JavaSparkContext sc = SparkConnection.getContext();
+            JavaRDD<String> rptaRDD = sc.parallelize(respuesta);
+            rptaRDD.saveAsTextFile(outPath);
         }
     }
 }

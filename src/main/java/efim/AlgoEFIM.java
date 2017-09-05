@@ -47,7 +47,7 @@ public class AlgoEFIM {
     private Itemsets highUtilityItemsets;
     
 	/** object to write the output file */
-	BufferedWriter writer = null;
+	transient BufferedWriter writer = null;
 	
 	/** the number of high-utility itemsets found (for statistics) */
 	private int patternCount; 

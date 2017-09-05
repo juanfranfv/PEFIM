@@ -15,7 +15,7 @@ public class testEfim2 implements Serializable{
 
         // the input and output file paths
         String input;
-        String output = null;
+        String output = ".//output";
         if(arg.length > 0){
             input = arg[0];
             output = arg[1];
