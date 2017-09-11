@@ -18,7 +18,9 @@ public class testEfim2 implements Serializable{
         String output = ".//output";
         if(arg.length > 0){
             input = arg[0];
-            output = arg[1];
+            if(arg.length > 1){
+                output = arg[1];
+            }
         }else {
             input = fileToPath("datasets/chess_utility_spmf.txt");
         }

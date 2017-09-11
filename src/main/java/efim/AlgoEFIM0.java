@@ -8,6 +8,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
 import org.apache.spark.broadcast.Broadcast;
+import org.apache.spark.sql.SparkSession;
 import org.apache.spark.storage.StorageLevel;
 import org.apache.spark.util.CollectionAccumulator;
 import org.apache.spark.util.LongAccumulator;
@@ -164,6 +165,8 @@ public class AlgoEFIM0 implements Serializable {
         timeDatabaseReduction = 0;
 
         JavaSparkContext sc = SparkConnection.getContext();
+        SparkSession ss = SparkConnection.getSession();
+
         aMergeCount = sc.sc().longAccumulator();
         aMergeCount.setValue(0);
         aTransactionReadingCount = sc.sc().longAccumulator();
