@@ -20,7 +20,8 @@ public class testEfim2 implements Serializable{
                 output = arg[1];
             }
         }else {
-            input = fileToPath("chess.txt");
+//            input = fileToPath("chess.txt");
+            input = "https://s3.us-east-2.amazonaws.com/pefim/chess.txt";
         }
 
 

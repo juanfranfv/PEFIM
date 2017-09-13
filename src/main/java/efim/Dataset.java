@@ -5,14 +5,12 @@ import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.Serializable;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import efim.SparkConnection;
 import org.apache.spark.storage.StorageLevel;
+import java.net.URL;
 /* This file is copyright (c) 2012-2015 Souleymane Zida, Philippe Fournier-Viger, Alan Souza
 * 
 * This file is part of the SPMF DATA MINING SOFTWARE
@@ -56,14 +54,16 @@ public class Dataset  implements Serializable {
         transactions = new ArrayList<Transaction>();
         JavaSparkContext sc = SparkConnection.getContext();
         JavaRDD<String> archivo = sc.textFile(datasetPath);
+        URL u = new URL(datasetPath);
+        InputStreamReader in = new InputStreamReader(u.openStream());
 
         // Create a buffered reader to read the input file
-        BufferedReader br = new BufferedReader(new FileReader(datasetPath));
-//        String line;
+        BufferedReader br = new BufferedReader(in);
+        String line;
         int i=0;
         // iterate over the lines to build the transaction
-        for(String line: archivo.collect()){
-//        while((line = br.readLine()) != null) {
+//        for(String line: archivo.collect()){
+        while((line = br.readLine()) != null) {
 			// if the line is  a comment, is  empty or is  metadata
 			if (line.isEmpty() == true || line.charAt(0) == '#'
 					|| line.charAt(0) == '%' || line.charAt(0) == '@') {
