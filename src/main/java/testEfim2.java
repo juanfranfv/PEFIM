@@ -1,5 +1,3 @@
-import efim.AlgoEFIM3;
-import efim.AlgoEFIM2;
 import efim.AlgoEFIM0;
 
 import java.io.IOException;
@@ -22,7 +20,7 @@ public class testEfim2 implements Serializable{
                 output = arg[1];
             }
         }else {
-            input = fileToPath("datasets/chess_utility_spmf.txt");
+            input = fileToPath("chess.txt");
         }
 
 

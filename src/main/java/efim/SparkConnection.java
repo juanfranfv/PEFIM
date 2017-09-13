@@ -25,8 +25,8 @@ public class SparkConnection {
         if ( spContext == null) {
             //Setup Spark configuration
             SparkConf conf = new SparkConf()
-                    .setAppName(appName);
-//                    .setMaster(sparkMaster);
+                    .setAppName(appName)
+                    .setMaster(sparkMaster);
 
             //Make sure you download the winutils binaries into this directory
             //from https://github.com/srccodes/hadoop-common-2.2.0-bin/archive/master.zip

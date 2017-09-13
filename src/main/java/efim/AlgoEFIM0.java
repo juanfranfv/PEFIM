@@ -1813,7 +1813,7 @@ public class AlgoEFIM0 implements Serializable {
             respuesta.add(" Total time ~: " + (endTimestamp - startTimestamp) + " ms");
             JavaSparkContext sc = SparkConnection.getContext();
             JavaRDD<String> rptaRDD = sc.parallelize(respuesta);
-            rptaRDD.saveAsTextFile(outPath);
+//            rptaRDD.saveAsTextFile(outPath);
         }
     }
 }

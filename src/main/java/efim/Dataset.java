@@ -1,6 +1,7 @@
 package efim;
 
 import org.apache.spark.SparkConf;
+import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 
@@ -53,15 +54,18 @@ public class Dataset  implements Serializable {
 
     	// Initialize a list to store transactions in memory
         transactions = new ArrayList<Transaction>();
+        JavaSparkContext sc = SparkConnection.getContext();
+        JavaRDD<String> archivo = sc.textFile(datasetPath);
 
         // Create a buffered reader to read the input file
         BufferedReader br = new BufferedReader(new FileReader(datasetPath));
-        String line;
+//        String line;
         int i=0;
         // iterate over the lines to build the transaction
-        while((line = br.readLine()) != null) { 
+        for(String line: archivo.collect()){
+//        while((line = br.readLine()) != null) {
 			// if the line is  a comment, is  empty or is  metadata
-			if (line.isEmpty() == true || line.charAt(0) == '#' 
+			if (line.isEmpty() == true || line.charAt(0) == '#'
 					|| line.charAt(0) == '%' || line.charAt(0) == '@') {
 				continue;
 			}
@@ -72,7 +76,7 @@ public class Dataset  implements Serializable {
         	if(i==maximumTransactionCount) {
         		break;
         	}
-			
+
         }
         //****** Show the number of transactions in this dataset**************************//
         System.out.println("Transaction count :" +  transactions.size());
