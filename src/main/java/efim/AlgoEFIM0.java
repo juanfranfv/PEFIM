@@ -608,6 +608,7 @@ public class AlgoEFIM0 implements Serializable {
                 }
             });
             results = new ArrayList<Output>();
+            resultsRDD.persist(StorageLevel.MEMORY_ONLY());
             for(EFIMiner e: resultsRDD.collect()){
                 results.addAll(e.results);
                 candidateCount += e.candidateCount;
@@ -636,6 +637,7 @@ public class AlgoEFIM0 implements Serializable {
             });
 
             results = new ArrayList<Output>();
+            resultsRDD.persist(StorageLevel.MEMORY_ONLY());
             for(EFIMiner e: resultsRDD.collect()){
                 results.addAll(e.results);
                 candidateCount += e.candidateCount;
@@ -648,7 +650,6 @@ public class AlgoEFIM0 implements Serializable {
 //                    results.add(o);
 //                }
 //            }
-            resultsRDD.persist(StorageLevel.MEMORY_ONLY());
 //            List<Integer> resultado = itemTransactionsRDD.collect();
 //            itemTransactionsRDD.unpersist();
 //            itemsToExploreRDD.unpersist();
