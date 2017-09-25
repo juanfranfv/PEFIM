@@ -34,6 +34,8 @@ final public class EFIMiner implements Serializable {
 
     int[] newNamesToOldNames;
 
+    List<Integer> elementos;
+
     public EFIMiner(int minUtil, List<Transaction> transactions, boolean activateTransactionMerging,
                     int[] newNamesToOldNames, int newItemCount) {
         this.candidateCount = 0;
@@ -49,15 +51,20 @@ final public class EFIMiner implements Serializable {
         this.utilityBinArrayLU = new int[newItemCount + 1];
     }
 
-    public List<Output> Mine(Integer e, List<Integer> itemsToKeep) throws IOException {
+    public List<Output> Mine(Integer e, List<Integer> itemsToKeep, List<Integer> itemsToExplore) throws IOException {
         candidateCount++;
-        Miner(e, itemsToKeep, transactions, 0);
+        elementos = new ArrayList<>();
+        Miner(e, itemsToKeep, itemsToExplore, transactions, 0);
 
         return results;
     }
 
-    public void Miner(Integer e, List<Integer> itemsToKeep, List<Transaction> transactionsOfP, int prefixLength) throws IOException {
-        int j= itemsToKeep.indexOf(e);
+    public void Miner(Integer e, List<Integer> itemsToKeep, List<Integer> itemsToExplore, List<Transaction> transactionsOfP, int prefixLength) throws IOException {
+        int j= itemsToExplore.indexOf(e);
+        if(e == 44 & prefixLength == 0){
+            System.out.println("Hola");
+        }
+        elementos.add(e);
 //        if(e == 2){
 //            System.out.println(e);
 //        }
@@ -209,12 +216,12 @@ final public class EFIMiner implements Serializable {
                 // This is an optimization for binary search:
                 // we remember the position of E so that for the next item, we will not search
                 // before "e" in the transaction since items are visited in lexicographical order
-                transaction.offset = positionE;
+                //transaction.offset = positionE;
             }else{
                 // This is an optimization for binary search:
                 // we remember the position of E so that for the next item, we will not search
                 // before "e" in the transaction since items are visited in lexicographical order
-                transaction.offset = low;
+                //transaction.offset = low;
             }
         }
         // remember the total time for peforming the database projection
@@ -247,6 +254,7 @@ final public class EFIMiner implements Serializable {
             //temp[prefixLength] = newNamesToOldNames[e];
             System.arraycopy(temp, 0, copy, 0, prefixLength+1);
             results.add(new Output(prefixLength, utilityPe, e, copy));
+//            System.out.println(elementos);
         }
 
 //            if(DEBUG){
@@ -259,11 +267,11 @@ final public class EFIMiner implements Serializable {
         //==== Next, we will calculate the Local Utility and Sub-tree utility of
         // all items that could be appended to PU{e} ====
         useUtilityBinArraysToCalculateUpperBounds(transactionsPe, j, itemsToKeep);
-        if(e == 2){
-            System.out.println("Size: " + transactionsPe.size());
-            System.out.println(Arrays.toString(utilityBinArraySU));
-            //System.out.println(Arrays.toString(utilityBinArrayLU));
-        }
+//        if(e == 2){
+//            System.out.println("Size: " + transactionsPe.size());
+//            System.out.println(Arrays.toString(utilityBinArraySU));
+//            //System.out.println(Arrays.toString(utilityBinArrayLU));
+//        }
 //			if(DEBUG){
 //                System.out.println();
 //                System.out.println("===== Projected database e: " + e + " === ");
@@ -324,7 +332,7 @@ final public class EFIMiner implements Serializable {
         // ========  for each frequent item  e  =============
         for (int j = 0; j < itemsToExplore.size(); j++) {
             Integer e = itemsToExplore.get(j);
-            Miner(e, itemsToKeep, transactionsOfP, prefixLength);
+            Miner(e, itemsToKeep, itemsToExplore, transactionsOfP, prefixLength);
         }
     }
 

@@ -13,7 +13,7 @@ public class SparkConnection {
     //A name for the spark instance. Can be any string
     private static String appName = "EFIM";
     //Pointer / URL to the Spark instance - embedded
-    private static String sparkMaster = "local[2]";
+    private static String sparkMaster = "local[4]";
 
     private static JavaSparkContext spContext = null;
     private static SparkContext sc = null;
@@ -39,6 +39,7 @@ public class SparkConnection {
             sparkSession = SparkSession
                     .builder()
                     .appName(appName)
+                    .config("spark.executor.heartbeatInterval", "2min")
 //                    .master(sparkMaster)
 //                    .config("spark.sql.warehouse.dir", tempDir)
                     .getOrCreate();

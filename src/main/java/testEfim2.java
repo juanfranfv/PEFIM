@@ -20,12 +20,16 @@ public class testEfim2 implements Serializable{
                 output = arg[1];
             }
         }else {
-//            input = fileToPath("chess.txt");
-            input = "https://s3.us-east-2.amazonaws.com/pefim/chess.txt";
+            input = fileToPath("chess.txt");
+//            input = fileToPath("accidents.txt");
+//            input = "https://s3.us-east-2.amazonaws.com/pefim/chess.txt";
         }
 
 
         // the minutil threshold
+        //minutil accidents
+        //int minutil = 25000000;
+        //min util chess
         int minutil = 366632;
         double tetha = 0.3;
 

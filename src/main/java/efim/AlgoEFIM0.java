@@ -129,6 +129,7 @@ public class AlgoEFIM0 implements Serializable {
 
     /** Broadcasts */
     Broadcast<List<Integer>> bitemsToKeep;
+    Broadcast<List<Integer>> bitemsToExplore;
     Broadcast<List<Transaction>> btransactionsOfP;
     Broadcast<Integer> bnewItemCount;
     Broadcast<Integer> bminUtil;
@@ -544,6 +545,7 @@ public class AlgoEFIM0 implements Serializable {
 
         System.out.println("Size: " + SizeEstimator.estimate(transactionsOfPN));
         bitemsToKeep = sc.broadcast(itemsToKeepN);
+        bitemsToExplore = sc.broadcast(itemsToExploreN);
         btransactionsOfP = sc.broadcast(transactionsOfPN);
         bnewItemCount = sc.broadcast(newItemCount);
         bminUtil = sc.broadcast(minUtil);
@@ -595,11 +597,12 @@ public class AlgoEFIM0 implements Serializable {
                 public EFIMiner call(Tuple2<Integer, Integer> tupla) throws Exception {
                     Integer e = tupla._2;
                     List<Integer> itemsToKeep = bitemsToKeep.value();
+                    List<Integer> itemsToExplore = bitemsToExplore.value();
                     List<Transaction> transactionsOfP = btransactionsOfP.value();
 
                     EFIMiner efiminer = new EFIMiner(bminUtil.value(), transactionsOfP,
                             bactivateTransactionMerging.value(), newNamesToOldNames, bnewItemCount.value());
-                    List<Output> results = efiminer.Mine(e, itemsToKeep);
+                    List<Output> results = efiminer.Mine(e, itemsToKeep, itemsToExplore);
                     return efiminer;
                 }
             });
@@ -622,14 +625,16 @@ public class AlgoEFIM0 implements Serializable {
                 @Override
                 public EFIMiner call(Integer e) throws Exception {
                     List<Integer> itemsToKeep = bitemsToKeep.value();
+                    List<Integer> itemsToExplore = bitemsToExplore.value();
                     List<Transaction> transactionsOfP = btransactionsOfP.value();
 
                     EFIMiner efiminer = new EFIMiner(bminUtil.value(), transactionsOfP,
                             bactivateTransactionMerging.value(), newNamesToOldNames, bnewItemCount.value());
-                    List<Output> results = efiminer.Mine(e, itemsToKeep);
+                    List<Output> results = efiminer.Mine(e, itemsToKeep, itemsToExplore);
                     return efiminer;
                 }
             });
+
             results = new ArrayList<Output>();
             candidateCount = 0;
             for(EFIMiner e: resultsRDD.collect()){
