@@ -542,6 +542,7 @@ public class AlgoEFIM0 implements Serializable {
         JavaSparkContext sc = SparkConnection.getContext();
         aCandidateCount = sc.sc().longAccumulator();
         aCandidateCount.setValue(itemsToExploreN.size());
+        candidateCount += itemsToExploreN.size();
 
         System.out.println("Size: " + SizeEstimator.estimate(transactionsOfPN));
         bitemsToKeep = sc.broadcast(itemsToKeepN);
@@ -590,7 +591,7 @@ public class AlgoEFIM0 implements Serializable {
             }else{
                 pairRDD.partitionBy(new RandomPartitioner(partitions));
             }
-//            pairRDD.persist(StorageLevel.MEMORY_ONLY());
+            pairRDD.persist(StorageLevel.MEMORY_ONLY());
             //PairRDD
             JavaRDD<EFIMiner> resultsRDD = pairRDD.map(new Function<Tuple2<Integer, Integer>, EFIMiner>() {
                 @Override
@@ -607,7 +608,6 @@ public class AlgoEFIM0 implements Serializable {
                 }
             });
             results = new ArrayList<Output>();
-            candidateCount = 0;
             for(EFIMiner e: resultsRDD.collect()){
                 results.addAll(e.results);
                 candidateCount += e.candidateCount;
@@ -618,7 +618,7 @@ public class AlgoEFIM0 implements Serializable {
         }
         else{
             JavaRDD<Integer> itemsToExploreRDD = sc.parallelize(itemsToExploreN);
-//            itemsToExploreRDD.persist(StorageLevel.MEMORY_ONLY());
+            itemsToExploreRDD.persist(StorageLevel.MEMORY_ONLY());
 //            itemsToExploreRDD.foreach(new Funcion2());
 //            JavaRDD<Integer> itemTransactionsRDD = itemsToExploreRDD.map(new Funcion());
             JavaRDD<EFIMiner> resultsRDD = itemsToExploreRDD.map(new Function<Integer, EFIMiner>() {
@@ -636,7 +636,6 @@ public class AlgoEFIM0 implements Serializable {
             });
 
             results = new ArrayList<Output>();
-            candidateCount = 0;
             for(EFIMiner e: resultsRDD.collect()){
                 results.addAll(e.results);
                 candidateCount += e.candidateCount;
@@ -649,7 +648,7 @@ public class AlgoEFIM0 implements Serializable {
 //                    results.add(o);
 //                }
 //            }
-//            itemTransactionsRDD.persist(StorageLevel.MEMORY_ONLY());
+            resultsRDD.persist(StorageLevel.MEMORY_ONLY());
 //            List<Integer> resultado = itemTransactionsRDD.collect();
 //            itemTransactionsRDD.unpersist();
 //            itemsToExploreRDD.unpersist();

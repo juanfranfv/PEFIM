@@ -52,7 +52,7 @@ final public class EFIMiner implements Serializable {
     }
 
     public List<Output> Mine(Integer e, List<Integer> itemsToKeep, List<Integer> itemsToExplore) throws IOException {
-        candidateCount++;
+        //candidateCount++;
         elementos = new ArrayList<>();
         Miner(e, itemsToKeep, itemsToExplore, transactions, 0);
 
@@ -61,9 +61,9 @@ final public class EFIMiner implements Serializable {
 
     public void Miner(Integer e, List<Integer> itemsToKeep, List<Integer> itemsToExplore, List<Transaction> transactionsOfP, int prefixLength) throws IOException {
         int j= itemsToExplore.indexOf(e);
-        if(e == 44 & prefixLength == 0){
-            System.out.println("Hola");
-        }
+//        if(e == 44 & prefixLength == 0){
+//            System.out.println("Hola");
+//        }
         elementos.add(e);
 //        if(e == 2){
 //            System.out.println(e);
