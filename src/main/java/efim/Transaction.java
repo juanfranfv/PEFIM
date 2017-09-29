@@ -30,7 +30,7 @@ public class Transaction implements Serializable {
 	/** a buffer to store items of an itemset*/
 	public static int[] tempItems = new int[2000];
 	/** a buffer to store utilities of an itemset */
-	public static int[] tempUtilities = new int[2000];
+	public static long[] tempUtilities = new long[2000];
 
 	/** an offset pointer, used by projected transactions*/
 	int offset;
@@ -38,13 +38,13 @@ public class Transaction implements Serializable {
 	/** an array of items representing the transaction */
     int[] items;
     /** an array of utilities associated to items of the transaction */
-    int[] utilities;
+	long[] utilities;
     
     /** the transaction utility of the transaction or projected transaction */
-     int transactionUtility; 
+	long transactionUtility;
      
      /** the profit of a given prefix in this transaction (initially 0 if a transaction is not projected)*/
-     int prefixUtility;
+	 long prefixUtility;
 
      /**
       * Constructor of a transaction
@@ -52,7 +52,7 @@ public class Transaction implements Serializable {
       * @param utilities the utilities of item in this transaction
       * @param transactionUtility the transaction utility
       */
-    public Transaction(int[] items, int[] utilities, int transactionUtility) {
+    public Transaction(int[] items, long[] utilities, long transactionUtility) {
     	this.items = items;
     	this.utilities = utilities;
     	this.transactionUtility = transactionUtility;
@@ -73,7 +73,7 @@ public class Transaction implements Serializable {
     	this.utilities = transaction.getUtilities();
     	
     	// copy the utility of element e
-    	int utilityE = this.utilities[offsetE];
+    	long utilityE = this.utilities[offsetE];
     	
     	// add the  utility of item e to the utility of the whole prefix used to project the transaction
     	this.prefixUtility = transaction.prefixUtility + utilityE;
@@ -120,7 +120,7 @@ public class Transaction implements Serializable {
      * Get the array of utilities in this transaction
      * @return array of utilities
      */
-    public int[] getUtilities() {
+    public long[] getUtilities() {
         return utilities;
     }
 
@@ -167,7 +167,7 @@ public class Transaction implements Serializable {
     	System.arraycopy(tempItems, 0, this.items, 0, i);
 
     	// copy the buffer of utilities back into the original array
-    	this.utilities = new int[i];
+    	this.utilities = new long[i];
     	System.arraycopy(tempUtilities, 0, this.utilities, 0, i);
 
     	// Sort by increasing TWU values
@@ -207,7 +207,7 @@ public class Transaction implements Serializable {
 		System.arraycopy(tempItems, 0, this.items, 0, i);
 
 		// copy the buffer of utilities back into the original array
-		this.utilities = new int[i];
+		this.utilities = new long[i];
 		System.arraycopy(tempUtilities, 0, this.utilities, 0, i);
 
 		// Sort by increasing TWU values
@@ -219,10 +219,10 @@ public class Transaction implements Serializable {
 	 * This has an average performance of O(n log n)
 	 * @param items array of integers
 	 */
-	public static void insertionSort(int [] items,  int[] utitilies){
+	public static void insertionSort(int [] items,  long[] utitilies){
 		for(int j=1; j< items.length; j++){
 			int itemJ = items[j];
-			int utilityJ = utitilies[j];
+			long utilityJ = utitilies[j];
 			int i = j - 1;
 			for(; i>=0 && (items[i]  > itemJ); i--){
 				items[i+1] = items[i];

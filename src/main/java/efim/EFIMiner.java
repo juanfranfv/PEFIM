@@ -14,7 +14,7 @@ import java.util.List;
 final public class EFIMiner implements Serializable {
     List<Output> results;
     int candidateCount;
-    int minUtil;
+    long minUtil;
     private boolean activateTransactionMerging;
     private boolean activateSubtreeUtilityPruning;
     List<Transaction> transactions;
@@ -28,15 +28,15 @@ final public class EFIMiner implements Serializable {
     /** The following variables are the utility-bins array
      // Recall that each bucket correspond to an item */
     /** utility bin array for sub-tree utility */
-    private int[] utilityBinArraySU;
+    private long[] utilityBinArraySU;
     /** utility bin array for local utility */
-    private int[] utilityBinArrayLU;
+    private long[] utilityBinArrayLU;
 
     int[] newNamesToOldNames;
 
     List<Integer> elementos;
 
-    public EFIMiner(int minUtil, List<Transaction> transactions, boolean activateTransactionMerging,
+    public EFIMiner(long minUtil, List<Transaction> transactions, boolean activateTransactionMerging,
                     int[] newNamesToOldNames, int newItemCount) {
         this.candidateCount = 0;
         this.transactionReadingCount = 0;
@@ -47,8 +47,8 @@ final public class EFIMiner implements Serializable {
         this.minUtil = minUtil;
         this.transactions = transactions;
         this.newNamesToOldNames = newNamesToOldNames;
-        this.utilityBinArraySU = new int[newItemCount + 1];
-        this.utilityBinArrayLU = new int[newItemCount + 1];
+        this.utilityBinArraySU = new long[newItemCount + 1];
+        this.utilityBinArrayLU = new long[newItemCount + 1];
     }
 
     public List<Output> Mine(Integer e, List<Integer> itemsToKeep, List<Integer> itemsToExplore) throws IOException {
@@ -155,7 +155,7 @@ final public class EFIMiner implements Serializable {
                                 int itemsCount = previousTransaction.items.length - previousTransaction.offset;
                                 int[] items = new int[itemsCount];
                                 System.arraycopy(previousTransaction.items, previousTransaction.offset, items, 0, itemsCount);
-                                int[] utilities = new int[itemsCount];
+                                long[] utilities = new long[itemsCount];
                                 System.arraycopy(previousTransaction.utilities, previousTransaction.offset, utilities, 0, itemsCount);
 
                                 // make the sum of utilities from the previous transaction
@@ -168,7 +168,7 @@ final public class EFIMiner implements Serializable {
                                 }
 
                                 // make the sum of prefix utilities
-                                int sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
+                                long sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
 
                                 // create the new transaction replacing the two merged transactions
                                 previousTransaction = new Transaction(items, utilities, previousTransaction.transactionUtility + projectedTransaction.transactionUtility);
@@ -320,7 +320,7 @@ final public class EFIMiner implements Serializable {
             // as primary items
             backtrackingEFIM(transactionsPe, newItemsToKeep, newItemsToKeep,prefixLength+1);
         }
-        return;
+        //return;
     }
 
     private void backtrackingEFIM( List<Transaction> transactionsOfP,

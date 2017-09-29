@@ -529,7 +529,7 @@ public class AlgoEFIM2 implements Serializable {
             Integer itemI = items.get(i);
 			
 			// we compare the twu of items i and j
-			int comparison = utilityBinArrayTWU.get(itemI).getUtility() -  utilityBinArrayTWU.get(itemJ).getUtility();
+            long comparison = utilityBinArrayTWU.get(itemI).getUtility() -  utilityBinArrayTWU.get(itemJ).getUtility();
 			// if the twu is equal, we use the lexicographical order to decide whether i is greater
 			// than j or not.
 			if(comparison == 0){
@@ -666,7 +666,7 @@ public class AlgoEFIM2 implements Serializable {
                                         int itemsCount = previousTransaction.items.length - previousTransaction.offset;
                                         int[] items = new int[itemsCount];
                                         System.arraycopy(previousTransaction.items, previousTransaction.offset, items, 0, itemsCount);
-                                        int[] utilities = new int[itemsCount];
+                                        long[] utilities = new long[itemsCount];
                                         System.arraycopy(previousTransaction.utilities, previousTransaction.offset, utilities, 0, itemsCount);
 
                                         // make the sum of utilities from the previous transaction
@@ -679,7 +679,7 @@ public class AlgoEFIM2 implements Serializable {
                                         }
 
                                         // make the sum of prefix utilities
-                                        int sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
+                                        long sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
 
                                         // create the new transaction replacing the two merged transactions
                                         previousTransaction = new Transaction(items, utilities, previousTransaction.transactionUtility + projectedTransaction.transactionUtility);
@@ -926,7 +926,7 @@ public class AlgoEFIM2 implements Serializable {
                                     int itemsCount = previousTransaction.items.length - previousTransaction.offset;
                                     int[] items = new int[itemsCount];
                                     System.arraycopy(previousTransaction.items, previousTransaction.offset, items, 0, itemsCount);
-                                    int[] utilities = new int[itemsCount];
+                                    long[] utilities = new long[itemsCount];
                                     System.arraycopy(previousTransaction.utilities, previousTransaction.offset, utilities, 0, itemsCount);
 
                                     // make the sum of utilities from the previous transaction
@@ -939,7 +939,7 @@ public class AlgoEFIM2 implements Serializable {
                                     }
 
                                     // make the sum of prefix utilities
-                                    int sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
+                                    long sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
 
                                     // create the new transaction replacing the two merged transactions
                                     previousTransaction = new Transaction(items, utilities, previousTransaction.transactionUtility + projectedTransaction.transactionUtility);
@@ -1170,7 +1170,7 @@ public class AlgoEFIM2 implements Serializable {
         }
 
         for (Item i: lista) {
-            int utility = nlista.get(i.getItem()).utility;
+            long utility = nlista.get(i.getItem()).utility;
             nlista.set(i.item, new Item(i.getItem(), utility + i.getUtility()));
         }
 
@@ -1293,7 +1293,7 @@ public class AlgoEFIM2 implements Serializable {
 
         for (List<Item> items: acumulador.value()){
             for (Item i: items){
-                int utility = nlista.get(i.getItem()).utility;
+                long utility = nlista.get(i.getItem()).utility;
                 nlista.set(i.getItem(), new Item(i.getItem(), utility + i.getUtility()));
             }
         }

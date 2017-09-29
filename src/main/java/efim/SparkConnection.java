@@ -39,7 +39,9 @@ public class SparkConnection {
             sparkSession = SparkSession
                     .builder()
                     .appName(appName)
-                    .config("spark.executor.heartbeatInterval", "2min")
+                    .config("spark.executor.memory", "2g")
+                    .config("spark.driver.memory", "2g")
+                    //.config("spark.executor.heartbeatInterval", "2min")
 //                    .master(sparkMaster)
 //                    .config("spark.sql.warehouse.dir", tempDir)
                     .getOrCreate();

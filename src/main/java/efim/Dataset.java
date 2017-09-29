@@ -38,7 +38,7 @@ public class Dataset  implements Serializable {
 	/** the list of transactions in this dataset */
 	List<Transaction> transactions;
     JavaRDD<Transaction> transacciones;
-    int totalUtility  = 0;
+    long totalUtility  = 0;
 	/** the largest item name */
 	private int maxItem = 0;
 
@@ -100,7 +100,7 @@ public class Dataset  implements Serializable {
     	String[] split = line.split(":");
     	
     	// Get the transaction utility
-    	int transactionUtility = Integer.parseInt(split[1]);
+    	long transactionUtility = Integer.parseInt(split[1]);
     	
     	// Get the list of items 
         String[] itemsString = split[0].split(" ");
@@ -110,7 +110,7 @@ public class Dataset  implements Serializable {
     	
         //Create array to store the items and their utilities
         int[] items = new  int[itemsString.length];
-        int[] utilities = new  int[itemsString.length];
+        long[] utilities = new  long[itemsString.length];
 
         // for each item
         for (int i = 0; i < items.length; i++) {

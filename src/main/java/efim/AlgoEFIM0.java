@@ -50,10 +50,10 @@ import java.util.*;
 public class AlgoEFIM0 implements Serializable {
 
     /** 0 - Normal partitioning. 1 - Random partitioning. 2 - 1 to N, N to 1 partitioning */
-    private int partitioning = 0;
+    private int partitioning = 2;
 
     /** the number of workers for spark */
-    private int partitions = 4;
+    private int partitions = 3;
 
     /** the set of high-utility itemsets */
     private Itemsets highUtilityItemsets;
@@ -69,7 +69,7 @@ public class AlgoEFIM0 implements Serializable {
     long endTimestamp;
 
     /** the minutil threshold */
-    int minUtil;
+    long minUtil;
 
     /** if this variable is set to true, some debugging information will be shown */
     final boolean  DEBUG = false;
@@ -77,9 +77,14 @@ public class AlgoEFIM0 implements Serializable {
     /** The following variables are the utility-bins array
      // Recall that each bucket correspond to an item */
     /** utility bin array for sub-tree utility */
-    private int[] utilityBinArraySU;
+    private long[] utilityBinArraySU;
+    private CollectionAccumulator<Item> aUtilityBinArraySU;
+
     /** utility bin array for local utility */
-    private int[] utilityBinArrayLU;
+    private long[] utilityBinArrayLU;
+    private CollectionAccumulator<Item> aUtilityBinArrayLU;
+
+
 
     /** a temporary buffer */
     private int [] temp = new int [500];
@@ -132,7 +137,7 @@ public class AlgoEFIM0 implements Serializable {
     Broadcast<List<Integer>> bitemsToExplore;
     Broadcast<List<Transaction>> btransactionsOfP;
     Broadcast<Integer> bnewItemCount;
-    Broadcast<Integer> bminUtil;
+    Broadcast<Long> bminUtil;
     Broadcast<Boolean> bactivateTransactionMerging;
     Broadcast<Integer> bMAXIMUM_SIZE_MERGING;
 
@@ -156,7 +161,7 @@ public class AlgoEFIM0 implements Serializable {
      * @return the itemsets or null if the user choose to save to file
      * @throws IOException if exception while reading/writing to file
      */
-    public void runAlgorithm(int minUtil, String inputPath, String outputPath, boolean activateTransactionMerging, int maximumTransactionCount, boolean activateSubtreeUtilityPruning) throws IOException {
+    public void runAlgorithm(double tetha, String inputPath, String outputPath, boolean activateTransactionMerging, int maximumTransactionCount, boolean activateSubtreeUtilityPruning) throws IOException {
 
 
         // reset variables for statistics
@@ -183,7 +188,7 @@ public class AlgoEFIM0 implements Serializable {
 
         // read the input file
         Dataset dataset = new Dataset(inputPath, maximumTransactionCount);
-        //int minUtil = (int)(tetha * dataset.totalUtility / 100);
+        int minUtil = (int)(tetha * dataset.totalUtility / 100);
         // save minUtil value selected by the user
         this.minUtil = minUtil;
 
@@ -264,7 +269,7 @@ public class AlgoEFIM0 implements Serializable {
         // remember the number of promising item
         newItemCount = itemsToKeep.size();
         // initialize the utility-bin array for counting the subtree utility
-        utilityBinArraySU = new int[newItemCount + 1];
+        utilityBinArraySU = new long[newItemCount + 1];
 
         // if in debug mode, print to the old names and new names to the console
         // to check if they are correct
@@ -490,7 +495,7 @@ public class AlgoEFIM0 implements Serializable {
      * @param items list of integers to be sorted
      * @param items list the utility-bin array indicating the TWU of each item.
      */
-    public static void insertionSort(List<Integer> items, int [] utilityBinArrayTWU){
+    public static void insertionSort(List<Integer> items, long [] utilityBinArrayTWU){
         // the following lines are simply a modified an insertion sort
 
         for(int j=1; j< items.size(); j++){
@@ -499,7 +504,7 @@ public class AlgoEFIM0 implements Serializable {
             Integer itemI = items.get(i);
 
             // we compare the twu of items i and j
-            int comparison = utilityBinArrayTWU[itemI] - utilityBinArrayTWU[itemJ];
+            long comparison = utilityBinArrayTWU[itemI] - utilityBinArrayTWU[itemJ];
             // if the twu is equal, we use the lexicographical order to decide whether i is greater
             // than j or not.
             if(comparison == 0){
@@ -777,7 +782,7 @@ public class AlgoEFIM0 implements Serializable {
                                     int itemsCount = previousTransaction.items.length - previousTransaction.offset;
                                     int[] items = new int[itemsCount];
                                     System.arraycopy(previousTransaction.items, previousTransaction.offset, items, 0, itemsCount);
-                                    int[] utilities = new int[itemsCount];
+                                    long[] utilities = new long[itemsCount];
                                     System.arraycopy(previousTransaction.utilities, previousTransaction.offset, utilities, 0, itemsCount);
 
                                     // make the sum of utilities from the previous transaction
@@ -790,7 +795,7 @@ public class AlgoEFIM0 implements Serializable {
                                     }
 
                                     // make the sum of prefix utilities
-                                    int sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
+                                    long sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
 
                                     // create the new transaction replacing the two merged transactions
                                     previousTransaction = new Transaction(items, utilities, previousTransaction.transactionUtility + projectedTransaction.transactionUtility);
@@ -1046,7 +1051,7 @@ public class AlgoEFIM0 implements Serializable {
                                     int itemsCount = previousTransaction.items.length - previousTransaction.offset;
                                     int[] items = new int[itemsCount];
                                     System.arraycopy(previousTransaction.items, previousTransaction.offset, items, 0, itemsCount);
-                                    int[] utilities = new int[itemsCount];
+                                    long[] utilities = new long[itemsCount];
                                     System.arraycopy(previousTransaction.utilities, previousTransaction.offset, utilities, 0, itemsCount);
 
                                     // make the sum of utilities from the previous transaction
@@ -1059,7 +1064,7 @@ public class AlgoEFIM0 implements Serializable {
                                     }
 
                                     // make the sum of prefix utilities
-                                    int sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
+                                    long sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
 
                                     // create the new transaction replacing the two merged transactions
                                     previousTransaction = new Transaction(items, utilities, previousTransaction.transactionUtility + projectedTransaction.transactionUtility);
@@ -1320,7 +1325,7 @@ public class AlgoEFIM0 implements Serializable {
                                     int itemsCount = previousTransaction.items.length - previousTransaction.offset;
                                     int[] items = new int[itemsCount];
                                     System.arraycopy(previousTransaction.items, previousTransaction.offset, items, 0, itemsCount);
-                                    int[] utilities = new int[itemsCount];
+                                    long[] utilities = new long[itemsCount];
                                     System.arraycopy(previousTransaction.utilities, previousTransaction.offset, utilities, 0, itemsCount);
 
                                     // make the sum of utilities from the previous transaction
@@ -1333,7 +1338,7 @@ public class AlgoEFIM0 implements Serializable {
                                     }
 
                                     // make the sum of prefix utilities
-                                    int sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
+                                    long sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
 
                                     // create the new transaction replacing the two merged transactions
                                     previousTransaction = new Transaction(items, utilities, previousTransaction.transactionUtility + projectedTransaction.transactionUtility);
@@ -1533,7 +1538,7 @@ public class AlgoEFIM0 implements Serializable {
     public void useUtilityBinArrayToCalculateLocalUtilityFirstTime(Dataset dataset) {
 
         // Initialize utility bins for all items
-        utilityBinArrayLU = new int[dataset.getMaxItem() + 1];
+        utilityBinArrayLU = new long[dataset.getMaxItem() + 1];
 
         // Scan the database to fill the utility bins
         // For each transaction
@@ -1544,6 +1549,65 @@ public class AlgoEFIM0 implements Serializable {
                 utilityBinArrayLU[item] += transaction.transactionUtility;
             }
         }
+    }
+
+    public void useUtilityBinArrayToCalculateLocalUtilityFirstTime2(Dataset dataset) {
+        JavaSparkContext sc = SparkConnection.getContext();
+
+        // Initialize utility bins for all items
+        utilityBinArrayLU = new long[dataset.getMaxItem() + 1];
+
+        aUtilityBinArrayLU = sc.sc().collectionAccumulator("utility bin array LU");
+
+        JavaRDD<Transaction> transacciones = sc.parallelize(dataset.getTransactions2());
+        transacciones.persist(StorageLevel.MEMORY_ONLY());
+
+        JavaRDD<Transaction> tempRDD = transacciones.map(new Function<Transaction, Transaction>() {
+            public Transaction call(Transaction transaction) throws Exception {
+                //List<Item> vector = new ArrayList<Item>();
+                for (Integer item: transaction.getItems()) {
+                    Item i = new Item(item, transaction.transactionUtility);
+                    aUtilityBinArrayLU.add(i);
+                }
+                return transaction;
+            }
+        });
+        tempRDD.persist(StorageLevel.MEMORY_ONLY());
+        tempRDD.count();
+
+        List<Item> lista = aUtilityBinArrayLU.value();
+        List<Item> nlista = new ArrayList<Item>();
+        for (int i=0; i<dataset.getMaxItem() + 1; i++) {
+            nlista.add(new Item(i, 0));
+        }
+        if(DEBUG)
+        {
+            System.out.println("RDD: " + aUtilityBinArrayLU.value());
+        }
+
+        for (Item i: lista) {
+            long utility = nlista.get(i.getItem()).utility;
+            nlista.set(i.item, new Item(i.getItem(), utility + i.getUtility()));
+        }
+
+        //aUtilityBinArrayLU.reset();
+        aUtilityBinArrayLU.setValue(nlista);
+
+        for(Item i: aUtilityBinArrayLU.value()){
+            utilityBinArrayLU[i.getItem()] = i.getUtility();
+        }
+
+        // Scan the database to fill the utility bins
+        // For each transaction
+//        for (Transaction transaction : dataset.getTransactions()) {
+//            // for each item
+//            for(Integer item: transaction.getItems()) {
+//                // we add the transaction utility to the utility bin of the item
+//                utilityBinArrayLU[item] += transaction.transactionUtility;
+//            }
+//        }
+
+        tempRDD.unpersist();
     }
 
     /**
@@ -1666,7 +1730,7 @@ public class AlgoEFIM0 implements Serializable {
     }
 
     private void useUtilityBinArraysToCalculateUpperBounds2(List<Transaction> transactionsPe,
-                                                           int j, List<Integer> itemsToKeep, List<Integer> ubaSU, List<Integer> ubaLU) {
+                                                           int j, List<Integer> itemsToKeep, List<Long> ubaSU, List<Long> ubaLU) {
 
         // we will record the time used by this method for statistics purpose
         long initialTime = System.currentTimeMillis();
@@ -1679,7 +1743,7 @@ public class AlgoEFIM0 implements Serializable {
 //			utilityBinArrayLU[item] = 0;
 //		}
 
-        int sumRemainingUtility;
+        long sumRemainingUtility;
         // for each transaction
         for (Transaction transaction : transactionsPe) {
             // count the number of transactions read
@@ -1723,10 +1787,10 @@ public class AlgoEFIM0 implements Serializable {
                     // We add the utility of this item to the sum of remaining utility
                     sumRemainingUtility += transaction.getUtilities()[i];
                     // We update the sub-tree utility of that item in its utility-bin
-                    int tempSU = ubaSU.get(item);
+                    long tempSU = ubaSU.get(item);
                     ubaSU.set(item, sumRemainingUtility + transaction.prefixUtility + tempSU);
                     // We update the local utility of that item in its utility-bin
-                    int tempLU = ubaLU.get(item);
+                    long tempLU = ubaLU.get(item);
                     ubaLU.set(item, transaction.transactionUtility + transaction.prefixUtility + tempLU);
                 }
             }

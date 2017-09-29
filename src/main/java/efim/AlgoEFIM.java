@@ -66,10 +66,10 @@ public class AlgoEFIM {
 	// Recall that each bucket correspond to an item */
     /** utility bin array for sub-tree utility */
 	private int[] utilityBinArraySU;
-	private CollectionAccumulator<Integer> aUtilityBinArraySU;
+	private CollectionAccumulator<Long> aUtilityBinArraySU;
 	/** utility bin array for local utility */
 	private int[] utilityBinArrayLU;
-    private CollectionAccumulator<Integer> aUtilityBinArrayLU;
+    private CollectionAccumulator<Long> aUtilityBinArrayLU;
 
     /** a temporary buffer */
 	private int [] temp= new int [500];
@@ -565,7 +565,7 @@ public class AlgoEFIM {
 									int itemsCount = previousTransaction.items.length - previousTransaction.offset;
 									int[] items = new int[itemsCount];
 									System.arraycopy(previousTransaction.items, previousTransaction.offset, items, 0, itemsCount);
-									int[] utilities = new int[itemsCount];
+									long[] utilities = new long[itemsCount];
 									System.arraycopy(previousTransaction.utilities, previousTransaction.offset, utilities, 0, itemsCount);
 									
 									// make the sum of utilities from the previous transaction
@@ -578,7 +578,7 @@ public class AlgoEFIM {
 									}
 									
 									// make the sum of prefix utilities
-									int sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
+									long sumUtilities = previousTransaction.prefixUtility += projectedTransaction.prefixUtility;
 									
 									// create the new transaction replacing the two merged transactions
 									previousTransaction = new Transaction(items, utilities, previousTransaction.transactionUtility + projectedTransaction.transactionUtility);
@@ -757,10 +757,10 @@ public class AlgoEFIM {
         utilityBinArrayLU = new int[dataset.getMaxItem() + 1];
 
         aUtilityBinArrayLU = sc.sc().collectionAccumulator();
-        List<Integer> vector = new ArrayList<Integer>();
+        List<Long> vector = new ArrayList<Long>();
 		int n = dataset.getMaxItem() + 1;
 		for (int i=0; i < n; i++){
-            vector.add(i,0);
+            vector.add(i,(long) 0);
         }
         aUtilityBinArrayLU.setValue(vector);
 
