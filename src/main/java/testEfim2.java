@@ -14,13 +14,12 @@ public class testEfim2 implements Serializable{
         // the input and output file paths
         String input;
         String output = ".//output";
+        double tetha = 0.1;
         if(arg.length > 0){
             input = arg[0];
-            if(arg.length > 1){
-                output = arg[1];
-            }
+            if(arg.length > 1) tetha = Double.parseDouble(arg[1]);
         }else {
-            input = fileToPath("500.txt");
+            input = fileToPath("1.txt");
 //            input = fileToPath("accidents.txt");
 //            input = "https://s3.us-east-2.amazonaws.com/pefim/chess.txt";
         }
@@ -31,11 +30,11 @@ public class testEfim2 implements Serializable{
         //int minutil = 25000000;
         //min util chess
         int minutil = 10000;
-        double tetha = 0.3;
+
 
         // Run the EFIM algorithm
         AlgoEFIM0 algo = new AlgoEFIM0();
-        algo.runAlgorithm(tetha,  input, output, true, Integer.MAX_VALUE, true);
+        algo.runAlgorithm(tetha, input, output, true, Integer.MAX_VALUE, true);
         // Print statistics
         algo.printStats();
 //        while (true) {

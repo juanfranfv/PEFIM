@@ -116,6 +116,7 @@ public class AlgoEFIM0 implements Serializable {
 
     /** number of times a transaction was read */
     long transactionReadingCount;
+    long huiCount;
     /** number of merges */
     long mergeCount;
 
@@ -167,6 +168,7 @@ public class AlgoEFIM0 implements Serializable {
         // reset variables for statistics
         mergeCount=0;
         transactionReadingCount=0;
+        huiCount = 0;
         timeIntersections = 0;
         timeDatabaseReduction = 0;
 
@@ -188,7 +190,7 @@ public class AlgoEFIM0 implements Serializable {
 
         // read the input file
         Dataset dataset = new Dataset(inputPath, maximumTransactionCount);
-        int minUtil = (int)(tetha * dataset.totalUtility / 100);
+        long minUtil = (long)(tetha * dataset.totalUtility);
         // save minUtil value selected by the user
         this.minUtil = minUtil;
 
@@ -471,10 +473,10 @@ public class AlgoEFIM0 implements Serializable {
         // return the set of high-utility itemsets
         //return highUtilityItemsets;
         //this.highUtilityItemsets = new Itemsets("Itemsets");
-        for (Output o: results) {
-            output(o.prefix, o.utility, o.copy);
-            //highUtilityItemsets.addItemset(hui.getItemset(), hui.getLevel());
-        }
+//        for (Output o: results) {
+//            output(o.prefix, o.utility, o.copy);
+//            //highUtilityItemsets.addItemset(hui.getItemset(), hui.getLevel());
+//        }
         if(DEBUG) {
             highUtilityItemsets.printItemsets();
 
@@ -619,7 +621,7 @@ public class AlgoEFIM0 implements Serializable {
                 candidateCount += e.candidateCount;
                 mergeCount += e.mergeCount;
                 transactionReadingCount += e.transactionReadingCount;
-
+                huiCount += e.huiCount;
             }
         }
         else{
@@ -648,6 +650,7 @@ public class AlgoEFIM0 implements Serializable {
                 candidateCount += e.candidateCount;
                 mergeCount += e.mergeCount;
                 transactionReadingCount += e.transactionReadingCount;
+                huiCount += e.huiCount;
 
             }
 //            for(List<Output> r: resultsRDD.collect()){
@@ -1850,7 +1853,7 @@ public class AlgoEFIM0 implements Serializable {
 
         System.out.println("========== EFIM v97 - STATS ============");
         System.out.println(" minUtil = " + minUtil);
-        System.out.println(" High utility itemsets count: " + patternCount);
+        System.out.println(" High utility itemsets count: " + huiCount);
         System.out.println(" Total time ~: " + (endTimestamp - startTimestamp)
                 + " ms");
         // if in debug mode, we show more information

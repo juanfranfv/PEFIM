@@ -53,7 +53,7 @@ public class Dataset  implements Serializable {
     	// Initialize a list to store transactions in memory
         transactions = new ArrayList<Transaction>();
         JavaSparkContext sc = SparkConnection.getContext();
-        JavaRDD<String> archivo = sc.textFile(datasetPath);
+        //JavaRDD<String> archivo = sc.textFile(datasetPath);
 //        URL u = new URL(datasetPath);
 //        InputStreamReader in = new InputStreamReader(u.openStream());
 

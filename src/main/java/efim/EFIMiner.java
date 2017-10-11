@@ -15,6 +15,7 @@ final public class EFIMiner implements Serializable {
     List<Output> results;
     int candidateCount;
     long minUtil;
+    int huiCount;
     private boolean activateTransactionMerging;
     private boolean activateSubtreeUtilityPruning;
     List<Transaction> transactions;
@@ -39,6 +40,7 @@ final public class EFIMiner implements Serializable {
     public EFIMiner(long minUtil, List<Transaction> transactions, boolean activateTransactionMerging,
                     int[] newNamesToOldNames, int newItemCount) {
         this.candidateCount = 0;
+        this.huiCount = 0;
         this.transactionReadingCount = 0;
         this.mergeCount = 0;
         this.results = new ArrayList<Output>();
@@ -250,10 +252,11 @@ final public class EFIMiner implements Serializable {
 
             // output PU{e}
 //            output(prefixLength, utilityPe );
-            int[] copy = new int[prefixLength+1];
+            //int[] copy = new int[prefixLength+1];
             //temp[prefixLength] = newNamesToOldNames[e];
-            System.arraycopy(temp, 0, copy, 0, prefixLength+1);
-            results.add(new Output(prefixLength, utilityPe, e, copy));
+            //System.arraycopy(temp, 0, copy, 0, prefixLength+1);
+            //results.add(new Output(prefixLength, utilityPe, e, copy));
+            huiCount++;
 //            System.out.println(elementos);
         }
 
